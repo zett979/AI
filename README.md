@@ -5,10 +5,11 @@
 - each_page components
 - Base style components
 
-## Sample Usage of Components
-
-- please look in sample_button.py
-
 ## Styles
 
 - please refer to figma file
+
+## MultiPage setup
+
+- please see it in /pages folder
+- Please check in AnalysisPage.py for initial style setup

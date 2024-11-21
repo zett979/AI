@@ -9,7 +9,6 @@ BaseStyle()
 
 def main():
     st.write("Analysis Page")
-    st.button("SAMPLE")
     with elements("multiple_children"):
         mui.Button(
             "Button",
