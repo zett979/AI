@@ -1,0 +1,36 @@
+[themes]
+base = "#EEFFFF"
+black = "#000000"
+text = "#141717"
+white = "#FFFFFF"
+
+disabled = "#424242"
+disabledGhost = "#394141"
+softLight = "#E3F4F4"
+
+primary = "#C4DFDF"
+primaryDisabled = "#9BADAD"
+primaryHover = "#B1CBCB"
+primaryLight = "#D2E9E9"
+
+secondary = "#FFEEEE"
+secondaryDisabled = "#E8D7D7"
+secondaryHover = "#F9EAEA"
+secondaryLight = "#FFF6F6"
+
+error = "#E55757"
+errorDisabled = "#A93A3A"
+errorHover = "#CA4B4B"
+errorLight = "#FF6565"
+
+success = "#A2E995"
+successDisabled = "#6D9865"
+successHover = "#8AC67F"
+successLight = "#B3FFA5"
+
+warning = "#FADFA1"
+warningDisabled = "#C1AC7C"
+warningHover = "#DFC790"
+warningLight = "#FCE1A5"
+
+cardShadow = "0 4px 20px 10px #B2D9D9"

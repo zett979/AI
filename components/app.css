@@ -1,0 +1,28 @@
+:root,
+body {
+  color: #141717;
+}
+.stSidebar,
+div[data-testid="stSidebarCollapsedControl"],
+.stAppHeader {
+  display: none;
+}
+.stApp,
+.stAppViewContainer,
+.withScreencast,
+.stMainBlockContainer {
+  background-color: transparent;
+}
+.stMainBlockContainer,
+.block-container,
+.stMain {
+  padding: 0;
+  margin: 0;
+  display: block;
+  max-width: 100%;
+  min-width: 0px;
+}
+
+.sample {
+  width: 200px !important;
+}
