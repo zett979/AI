@@ -29,6 +29,7 @@ def ButtonStyle(variant="primary", size="sm", ghost=False):
         "boxShadow": "none",
         "backgroundColor": "transparent",
         "color": Theme()["text"],
+        "textTransform": "capitalize",
     }
     if ghost == True:
         sx["&:disabled"] = {"color": Theme()["disabled"]}
@@ -81,12 +82,12 @@ def ButtonStyle(variant="primary", size="sm", ghost=False):
     # default spacing is n * 8 px
     if size == "sm":
         sx["p"] = 1.25
-        sx["borderRadius"] = 1
+        sx["borderRadius"] = "8px"
         sx["fontSize"] = "16px"
     else:
         sx["px"] = 2.5
         sx["py"] = 2
-        sx["borderRadius"] = 1.25
+        sx["borderRadius"] = "10px"
         sx["fontSize"] = "20px"
         sx["fontWeight"] = "semibold"
 
