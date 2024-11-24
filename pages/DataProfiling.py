@@ -1,6 +1,7 @@
 import streamlit as st
 from ydata_profiling import ProfileReport
 from components.Base import BaseStyle, Theme, ButtonStyle
+import os
 
 st.set_page_config(page_title="Data Profiling")
 
@@ -17,12 +18,14 @@ def main():
             st.dataframe(df)
 
             st.write("Generating data profiling report...")
-            profile = ProfileReport(df, title="Data Profiling Report", explorative=True)
+            profile = ProfileReport(df, title="Data Profiling Report", explorative=True, config_file="./data_profiling.yml")
             
+            if not os.path.exists(r'./_cache'):
+                os.mkdir(r'./_cache')
             # Save the report as HTML and display it
-            profile.to_file("profile_report.html")
+            profile.to_file("./_cache/profile_report.html")
 
-            with open("profile_report.html", "r") as f:
+            with open("./_cache/profile_report.html", "r") as f:
                 st.components.v1.html(f.read(), height=1000, scrolling=True)
 
             # Converting the profiling report to HTML for download

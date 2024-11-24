@@ -1,7 +1,7 @@
 :root,
 body {
   color: #141717;
-  padding: 0px;
+  padding: 0pxx;
   margin: 0px;
 }
 .stVerticalBlock,
@@ -31,7 +31,9 @@ div[data-testid="stSidebarCollapsedControl"],
   max-width: 100%;
   min-width: 0px;
 }
-
+.stAppViewContainer{
+  padding: 0 40px;
+}
 .sample {
   width: 200px !important;
 }
