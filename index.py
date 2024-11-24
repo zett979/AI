@@ -5,27 +5,17 @@ from streamlit_elements import elements, mui, html
 
 st.set_page_config(page_title="Home", initial_sidebar_state="collapsed")
 
-BaseStyle()
+# BaseStyle()
 
 if "uploaded_data" not in st.session_state:
     st.session_state.uploaded_data = None
 
-if "isRowMain" not in st.session_state:
-    st.session_state.isRowMain = False
-
 @st.dialog("Cast your items")
-def customize(df):
-    st.write(f"Choose your items")
-    on = st.toggle('Use row')
-    if on:
-        st.write("Using row")
-        for index, row in df.iterrows():
-            st.write(row.name)
-    else: 
-        st.write("Using column")
-        for column in df.columns:
-            st.text(column)
-    st.session_state.isRowMain = on
+def customize():
+    df = st.session_state.uploaded_data
+    st.write("Using column")
+    for column in df.columns:
+        st.text(column)
 
 
 def main():
@@ -36,10 +26,10 @@ def main():
     if uploaded_file:
         try:
             # Store the uploaded file as a DataFrame in session state
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(uploaded_file, index_col=1)
             st.session_state.uploaded_data = df
             st.success("File uploaded successfully!")
-            customize(df)
+            # customize()
         except Exception as e:
             st.error(f"Error: {e}")
 
