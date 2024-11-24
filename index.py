@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-from components.Base import BaseStyle
-from streamlit_elements import elements, mui, html
 
 st.set_page_config(page_title="Home", initial_sidebar_state="collapsed")
 
