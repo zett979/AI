@@ -1,6 +1,13 @@
 :root,
 body {
   color: #141717;
+  padding: 0pxx;
+  margin: 0px;
+}
+.stVerticalBlock,
+.st-emotion-cache-kswft9,
+.stVerticalBlockBorderWrapper,
+.stMainBlockContainer .e1f1d6gn2 {
   padding: 0px;
   margin: 0px;
 }
@@ -31,7 +38,9 @@ div[data-testid="stSidebarCollapsedControl"],
   max-width: 100%;
   min-width: 0px;
 }
-
+.stAppViewContainer{
+  padding: 0 40px;
+}
 .sample {
   width: 200px !important;
 }
