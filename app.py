@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, html, dcc
+from dash import Dash, html
 from components.Button import Button
 
 app = Dash(__name__, use_pages=True)
