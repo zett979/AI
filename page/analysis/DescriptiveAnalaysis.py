@@ -1,3 +1,4 @@
+import dash
 from dash import html, dcc, callback, Input, Output
 from components.Button import Button
 from components.Typography import P
@@ -11,6 +12,7 @@ def DescriptiveAnalysis():
     return html.Div(
         [
             dcc.Store(id="file-store", storage_type="local"),
+            dcc.Store(id="used-col-row", storage_type="local"),
             html.Div(
                 [
                     Button(
@@ -20,6 +22,7 @@ def DescriptiveAnalysis():
                         ],
                         variant="primary",
                         id="uploaded-filename",
+                        n_clicks=0,
                         className="w-fit flex items-center gap-2.5 mb-4 rounded-[5px]",
                     ),
                     # Descriptive Analysis
@@ -64,25 +67,17 @@ def DescriptiveAnalysis():
     Output("mean-graph", "figure"),
     Output("buttons", "children"),
     Input("file-store", "data"),
+    Input("used-col-row", "data"),
 )
-def loadData(file):
+def loadData(file, usedColRow):
     if file["fileName"] and file["content"]:
         df = pd.DataFrame(file["content"])
 
         clean_df = df.select_dtypes(include="number").dropna()
-        mean_type = "rows"
-        if mean_type == "rows":
-            # Calculate mean of rows (only numerical rows)
-            means = clean_df.mean(axis=1)
-            x = df["animal_name"]
-            y = means
-        else:
-            # Calculate mean of columns (only numerical columns)
-            means = clean_df.mean(axis=0)
-            x = df["animal_name"]
-            y = means
+        means = clean_df.mean(axis=1 if usedColRow["useRow"] == True else 0)
+        x = df["animal_name"]
+        y = means
 
-        # Create a bar chart
         figure = go.Figure(
             data=[go.Bar(x=x, y=y, marker=dict(color="white"))],
             layout=go.Layout(
@@ -189,3 +184,14 @@ def loadData(file):
                 ),
             ],
         )
+
+
+@callback(
+    Output("data-dialog", "style", allow_duplicate=True),
+    Input("uploaded-filename", "n_clicks"),
+    prevent_initial_call=True,
+)
+def openDataDialog(n_clicks):
+    if n_clicks:
+        return {"boxShadow": "0 0 30px 0px rgba(0, 0, 0, 0.50)", "display": "block"}
+    else: return None
