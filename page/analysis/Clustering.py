@@ -5,8 +5,8 @@ import plotly.graph_objs as go
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from components.Typography import P
 
-# If Card component is not available, create a simple replacement
 def Card(title=None, children=None, **kwargs):
     """
     Simple Card component replacement if not imported
@@ -25,22 +25,6 @@ def Card(title=None, children=None, **kwargs):
         **kwargs
     )
 
-# Fallback Typography component if not imported
-def P(children, variant="body1", className="", **kwargs):
-    """
-    Simple Typography replacement if not imported
-    """
-    class_map = {
-        "heading2": "text-2xl font-bold",
-        "body1": "text-base",
-        "body2": "text-sm text-gray-600"
-    }
-    
-    return html.P(
-        children, 
-        className=f"{class_map.get(variant, '')} {className}",
-        **kwargs
-    )
 
 def create_clustering_controls():
     """
