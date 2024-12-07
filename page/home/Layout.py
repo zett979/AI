@@ -7,7 +7,7 @@ import io
 import pandas as pd
 
 
-def Home():
+def Layout():
     return html.Div(
         children=[
             dcc.Store(id="file-store", storage_type="local"),
@@ -69,7 +69,6 @@ def Home():
                 src="assets/images/bg-box.png",
                 className="absolute -right-[15%] top-[200px] z-[1]",
             ),
-            html.P(id="n_clicks"),
         ],
         className="relative w-full",
     )
@@ -79,7 +78,6 @@ def Home():
     Output("filename", "children", allow_duplicate=True),
     Output("file-store", "data"),
     Output("start-analyse", "disable_n_clicks", allow_duplicate=True),
-    Output("data-dialog", "style", allow_duplicate=True),
     Input("file-upload", "contents"),
     State("file-upload", "filename"),
     prevent_initial_call=True,
@@ -94,7 +92,6 @@ def handleFileUpload(contents, filename):
         filename,
         {"fileName": filename, "content": df.to_dict("records")},
         False,
-        {"boxShadow": "0 0 30px 0px rgba(0, 0, 0, 0.50)", "display": "block"},
     )
 
 
