@@ -7,6 +7,7 @@ MODEL = "llama3.2"
 
 
 def getModelName():
+    global MODEL
     try:
         test = ollama.list()
         MODEL = test.models[0].model.split(":")[0]
