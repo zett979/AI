@@ -29,7 +29,7 @@ def Layout():
                             Button(
                                 children=[
                                     "Upload",
-                                    html.Img(src="/assets/images/upload.svg"),
+                                    html.Img(src="/assets/images/icons/upload.svg"),
                                 ],
                                 variant="primary",
                                 size="md",

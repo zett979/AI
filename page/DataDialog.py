@@ -15,7 +15,7 @@ def DataDialog():
                 html.Button(
                     id="data-close-btn",
                     children=[
-                        html.Img(src="assets/images/cross.svg", className="size-6")
+                        html.Img(src="/assets/images/icons/cross.svg", className="size-6")
                     ],
                     className="absolute right-3 top-3",
                 ),

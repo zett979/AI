@@ -1,0 +1,25 @@
+#base                {color: #EEFFFF}
+#soft_blue           {color: #E3F4F4}
+#light_primary       {color: #D2E9E9}
+#primary             {color: #C4DFDF}
+#foreground          {color: #141717}
+
+#secondary           {color: #FFEEEE}
+#secondary_hover     {color: #F9EAEA}
+#secondary_light     {color: #FFF6F6}
+#secondary_disabled  {color: #E8D7D7}
+
+#success             {color: #A2E995}
+#success_hover       {color: #8AC67F}
+#success_light       {color: #B3FFA5}
+#success_disabled    {color: #6D9865}
+
+#warning             {color: #FADFA1}
+#warning_hover       {color: #DFC790}
+#warning_light       {color: #FCE1A5}
+#warning_disabled    {color: #C1AC7C}
+
+#error               {color: #E55757}
+#error_hover         {color: #CA4B4B}
+#error_light         {color: #FF6565}
+#error_disabled      {color: #A93A3A}

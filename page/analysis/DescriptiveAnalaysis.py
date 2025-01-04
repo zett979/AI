@@ -18,7 +18,7 @@ def DescriptiveAnalysis():
                     Button(
                         children=[
                             "File name.csv",
-                            html.Img(src="assets/images/edit.svg", className="size-6"),
+                            html.Img(src="/assets/images/icons/edit.svg", className="size-6"),
                         ],
                         variant="primary",
                         id="uploaded-filename",
@@ -224,7 +224,7 @@ def loadData(file, usedColRow, mean, median, mode):
         return (
             [
                 file["fileName"],
-                html.Img(src="assets/images/edit.svg", className="size-6"),
+                html.Img(src="/assets/images/icons/edit.svg", className="size-6"),
             ],
             figure,
             title,

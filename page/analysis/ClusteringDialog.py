@@ -53,7 +53,7 @@ def ClusteringDialog():
                 html.Button(
                     id="clustering-close-btn",
                     children=[
-                        html.Img(src="assets/images/cross.svg", className="size-6")
+                        html.Img(src="/assets/images/icons/cross.svg", className="size-6")
                     ],
                     className="absolute right-3 top-3",
                 ),

@@ -46,7 +46,7 @@ def Classifier():
             Button(
                 children=[
                     "Setting",
-                    html.Img(src="assets/images/setting.svg", className="size-6"),
+                    html.Img(src="/assets/images/icons/setting.svg", className="size-6"),
                 ],
                 size="sm",
                 variant="primary",

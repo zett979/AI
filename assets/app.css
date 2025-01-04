@@ -7,7 +7,7 @@
 }
 body {
   color: #141717;
-  background-color: #eeffff;
+  background-color: #EEFFFF;
   font-family: "Host Grotesk";
   font-weight: medium;
   max-width: 100%;
@@ -46,7 +46,7 @@ input[type="checkbox"]:checked::after {
   top: 2px;
   left: 0.5px;
   position: absolute;
-  background-image: url(/assets/images/check.svg);
+  background-image: url(/assets/images/icons/icons/check.svg);
   background-size: contain;
 }
 #use-row > div {

@@ -73,7 +73,7 @@ def Clustering():
             Button(
                 children=[
                     "Setting",
-                    html.Img(src="assets/images/setting.svg", className="size-6"),
+                    html.Img(src="/assets/images/icons/setting.svg", className="size-6"),
                 ],
                 size="sm",
                 variant="primary",
@@ -229,7 +229,7 @@ def update_clustering_visualization(n_clusters, scaling_method, file_data):
 @callback(
     Output("clustering-dialog","style"),
     Input("clustering-setting","n_clicks"),
-    prevent_initial_callback=True
+    prevent_initial_call=True
 )
 def openClusteringDialog(n_clicks):
     if n_clicks:

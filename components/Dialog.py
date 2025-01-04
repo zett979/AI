@@ -23,7 +23,7 @@ def Dialog():
                     ),
                     html.Button(
                         html.Img(
-                            src="assets/images/cross.svg",
+                            src="/assets/images/icons/cross.svg",
                             className="size-6 absolute right-2 top-2",
                         ),
                         id="close_btn",
