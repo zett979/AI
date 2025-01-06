@@ -1,203 +1,166 @@
 import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash import dcc, html, Input, Output, State, no_update
 import torch
-import torch.nn as nn
-import torchvision
 from torchvision import transforms
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-import numpy as np
-import requests
-import zipfile
-from io import BytesIO
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-import io
+from PIL import Image
+import torch.nn as nn
+import plotly.express as px
 import base64
+from io import BytesIO
+from extras.fashion_model import CNN
 
-# Define the Fast Gradient Sign Method (FGSM) attack
-def fgsm_attack(model, loss_fn, data, target, epsilon):
-    data.requires_grad = True
-    output = model(data)
-    loss = loss_fn(output, target)
-    model.zero_grad()
-    loss.backward()
-    perturbation = epsilon * data.grad.sign()
-    perturbed_data = data + perturbation
-    perturbed_data = torch.clamp(perturbed_data, 0, 1)  # Ensure pixel values are valid
-    return perturbed_data
+model = CNN()
+model.load_state_dict(torch.load('./extras/fashion_mnist_cnn.pth'))  
+model.eval()
 
-# Define the MNIST CNN model architecture
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
-
-    def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2)) #12, 12, 10
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2)) #4, 4, 20
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
-
-# Initialize Dash App
 app = dash.Dash(__name__)
 
-# Layout of the Dash Application
+# App Layout
 app.layout = html.Div([
-    html.H1("FGSM Detection in MNIST Dataset", style={'text-align': 'center'}),
+    html.H1("Fashion MNIST Image Upload and FGSM Attack"),
+    dcc.Upload(
+        id='upload-image',
+        children=html.Button('Upload Image'),
+        multiple=False
+    ),
     
-    html.Div([
-        dcc.Upload(
-            id='upload-model',
-            children=html.Button('Upload Pre-trained Model (.pth file)'),
-            multiple=False
-        ),
-        html.Div(id='output-model-upload', style={'margin-top': '20px'}),
-    ], style={'text-align': 'center', 'margin-bottom': '20px'}),
+    html.Div(id='image-container', children=[]),
     
+    # Epsilon value slider for FGSM attack
     html.Div([
-        dcc.Upload(
-            id='upload-dataset',
-            children=html.Button('Upload MNIST Dataset (ZIP)'),
-            multiple=False
-        ),
-        html.Div(id='output-dataset-upload', style={'margin-top': '20px'}),
-    ], style={'text-align': 'center', 'margin-bottom': '20px'}),
-    
-    html.Div([
-        html.Label("Adjust Epsilon for FGSM Attack:"),
+        html.Label("Epsilon Value:"),
         dcc.Slider(
             id='epsilon-slider',
-            min=0,
-            max=0.5,
+            min=0.01,
+            max=1.0,
             step=0.01,
             value=0.1,
-            marks={i/10: f'{i/10}' for i in range(6)},
-            tooltip={"placement": "bottom", "always_visible": True}
+            marks={i / 10: f'{i / 10:.1f}' for i in range(1, 11)},
         ),
-        html.Div(id='slider-output', style={'text-align': 'center', 'margin-top': '20px'})
-    ], style={'margin-top': '20px'}),
+    ], style={'width': '60%', 'padding': '20px'}),
     
-    html.Div([
-        html.H3("Model Performance:"),
-        html.P(id="accuracy-output", style={'text-align': 'center'}),
-        
-        html.H3("Visualizing Clean vs Adversarial Examples:"),
-        dcc.Graph(id='image-plot')
-    ], style={'text-align': 'center', 'margin-top': '20px'})
+    # Button to apply FGSM attack
+    html.Button('Apply FGSM Attack', id='fgsm-button', n_clicks=0),
+    
+    # Display original and adversarial images and predictions
+    html.Div(id='comparison-container', children=[]),
 ])
 
-### Step 3: Create Callbacks to Handle Uploads and Model Evaluation
-
-# Global variables to store the model and dataset
-model = None
-dataset_loader = None
-
-# Define callback for model upload
-@app.callback(
-    Output('output-model-upload', 'children'),
-    Output('output-dataset-upload', 'children'),
-    Input('upload-model', 'contents'),
-    Input('upload-dataset', 'contents'),
-    State('upload-model', 'filename'),
-    State('upload-dataset', 'filename'),
-)
-def upload_files(model_content, dataset_content, model_filename, dataset_filename):
-    global model, dataset_loader
+def decode_image(contents):
+    content_type, content_string = contents.split(',')
+    decoded = base64.b64decode(content_string)
+    img = Image.open(BytesIO(decoded))
+    img = img.convert('L')  # Convert to grayscale (Fashion MNIST)
+    img = img.resize((28, 28))  # Resize to 28x28 (Fashion MNIST size)
     
-    # Check if the model is uploaded
-    if model_content is not None:
-        content_type, content_string = model_content.split(',')
-        decoded = base64.b64decode(content_string)
-        model = CNN()
-        model.load_state_dict(torch.load(io.BytesIO(decoded), map_location=torch.device('cpu')))
-        model.eval()
-        model_message = f"Model {model_filename} loaded successfully."
-    else:
-        model_message = "Upload a trained model (.pth file)."
-
-    # Check if dataset is uploaded
-    if dataset_content is not None:
-        content_type, content_string = dataset_content.split(',')
-        decoded = base64.b64decode(content_string)
-        with zipfile.ZipFile(io.BytesIO(decoded)) as zf:
-            zf.extractall("/tmp/dataset")
-        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-        dataset = torchvision.datasets.ImageFolder(root="/tmp/dataset", transform=transform)
-        dataset_loader = DataLoader(dataset, batch_size=64, shuffle=True)
-        dataset_message = f"Dataset {dataset_filename} loaded successfully."
-    else:
-        dataset_message = "Upload a dataset (ZIP file containing MNIST-like images)."
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Grayscale(),
+        transforms.Normalize((0.5,), (0.5,))  # Normalize to [-1, 1] for the model
+    ])
     
-    return model_message, dataset_message
+    img_tensor = transform(img).unsqueeze(0)  # Add batch dimension
+    return img_tensor
 
+# Helper function to apply FGSM attack
+def fgsm_attack(model, image, epsilon=0.1):
+    image.requires_grad = True
+    
+    # Forward pass
+    output = model(image)
+    
+    # Target class is the class with the highest prediction
+    loss = nn.CrossEntropyLoss()(output, output.max(1)[1])
+    
+    # Backward pass to calculate gradients
+    model.zero_grad()
+    loss.backward()
+    
+    # Collect the gradients of the image
+    image_grad = image.grad.data
+    
+    # Apply FGSM
+    perturbed_image = image + epsilon * image_grad.sign()
+    
+    # Clipping to ensure the image remains valid (i.e., pixel values between 0 and 1)
+    perturbed_image = torch.clamp(perturbed_image, 0, 1)
+    
+    return perturbed_image
 
-# Define callback for epsilon slider to evaluate and visualize
+# Helper function to get predictions
+def get_prediction(model, image_tensor):
+    with torch.no_grad():
+        output = model(image_tensor)
+    _, predicted_class = torch.max(output, 1)
+    return predicted_class.item()
+
+def tensor_to_image(tensor):
+    # Detach the tensor from the computation graph to avoid gradient issues
+    tensor = tensor.detach()  # Detach the tensor to remove it from the computation graph
+    
+    # Remove the batch dimension (which is 1 in this case) and the channel dimension
+    tensor = tensor.squeeze(0)  # Now shape should be (28, 28)
+    tensor = tensor.squeeze(0)  # Remove channel dimension, should now be shape (28, 28)
+    
+    tensor = tensor.cpu().numpy()  # Convert to numpy array
+    tensor = tensor * 0.5 + 0.5  # Denormalize to [0, 1]
+    
+    return tensor
+
+# Callback to handle image upload and FGSM attack
 @app.callback(
-    Output('slider-output', 'children'),
-    Output('accuracy-output', 'children'),
-    Output('image-plot', 'figure'),
+    Output('image-container', 'children'),
+    Output('comparison-container', 'children'),
+    Input('upload-image', 'contents'),
+    Input('fgsm-button', 'n_clicks'),
     Input('epsilon-slider', 'value'),
+    State('upload-image', 'filename')
 )
-def evaluate_model(epsilon):
-    global model, dataset_loader
+def update_output(uploaded_image, n_clicks, epsilon, filename):
+    if uploaded_image is None:
+        raise dash.no_update
 
-    if model is None or dataset_loader is None:
-        return "Please upload both the model and dataset first.", "", {}
-
-    loss_fn = nn.CrossEntropyLoss()
-
-    # Evaluate clean and adversarial accuracy
-    correct_clean = 0
-    correct_adv = 0
-    total = 0
-    images = []
-    labels = []
-    adv_images = []
-
-    for data, target in dataset_loader:
-        data, target = data.cuda(), target.cuda()
+    # Decode the uploaded image
+    img_tensor = decode_image(uploaded_image)
+    
+    # Get the prediction for the original image
+    original_pred = get_prediction(model, img_tensor)
+    
+    # Create a Plotly figure to display the original image
+    original_img = tensor_to_image(img_tensor)
+    
+    # If FGSM button is clicked, apply the attack
+    if n_clicks > 0:
+        perturbed_image = fgsm_attack(model, img_tensor, epsilon=epsilon)
+        perturbed_pred = get_prediction(model, perturbed_image)
         
-        # Clean data accuracy
-        output_clean = model(data)
-        _, predicted_clean = torch.max(output_clean, 1)
-        correct_clean += (predicted_clean == target).sum().item()
+        # Convert the perturbed image tensor to an image for display
+        perturbed_img = tensor_to_image(perturbed_image)
         
-        # Generate adversarial examples
-        data_adv = fgsm_attack(model, loss_fn, data, target, epsilon)
+        # Create Plotly figures to compare the original and perturbed images
+        original_fig = px.imshow(original_img, title=f"Original Image\nPredicted Class: {original_pred}")
+        perturbed_fig = px.imshow(perturbed_img, title=f"Adversarial Image\nPredicted Class: {perturbed_pred}")
         
-        # Adversarial data accuracy
-        output_adv = model(data_adv)
-        _, predicted_adv = torch.max(output_adv, 1)
-        correct_adv += (predicted_adv == target).sum().item()
-        
-        total += target.size(0)
-        
-        # Store images to display
-        images.append(data[0].cpu().detach().numpy().squeeze())
-        adv_images.append(data_adv[0].cpu().detach().numpy().squeeze())
-        labels.append(target[0].item())
-
-    clean_accuracy = correct_clean / total * 100
-    adv_accuracy = correct_adv / total * 100
-
-    # Displaying accuracy output
-    accuracy_output = f"Clean Accuracy: {clean_accuracy:.2f}% | Adversarial Accuracy (ε={epsilon}): {adv_accuracy:.2f}%"
-
-    # Visualize the first image (clean vs adversarial)
-    fig = go.Figure()
-    fig.add_trace(go.Image(z=images[0], name='Clean Image'))
-    fig.add_trace(go.Image(z=adv_images[0], name='Adversarial Image'))
-
-    return f"epsilon = {epsilon}", accuracy_output, fig
+        return [
+            html.Div([
+                html.H3(f"Uploaded Image: {filename}"),
+                dcc.Graph(figure=original_fig)
+            ]),
+            html.Div([
+                dcc.Graph(figure=perturbed_fig)
+            ])
+        ]
+    
+    # If no attack is applied, just show the original image and its prediction
+    original_fig = px.imshow(original_img, title=f"Original Image\nPredicted Class: {original_pred}")
+    
+    return [
+        html.Div([
+            html.H3(f"Uploaded Image: {filename}"),
+            dcc.Graph(figure=original_fig)
+        ]),
+        html.Div([])
+    ]
 
 if __name__ == '__main__':
     app.run_server(debug=True)
