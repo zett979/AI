@@ -126,7 +126,8 @@ def updateChats(chats):
         children.append(
             html.Div(
                 children=f"{chat['message']}",
-                className=f"flex w-fit max-w-[300px] p-2 bg-[#C4DFDF] rounded-md {'ml-auto' if chat['type'] == "User" else ''} {'animate-pulse !w-32 h-5' if chat['type'] == "Loading" else ''}",
+                className=f"flex w-fit max-w-[300px] p-2 bg-[#C4DFDF] rounded-md {'ml-auto' if chat['type'] == 'User' else ''} {'animate-pulse !w-32 h-5' if chat['type'] == 'Loading' else ''}",
+
             )
         )
     return children
