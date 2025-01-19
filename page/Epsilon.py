@@ -1,8 +1,8 @@
 from dash import html
-from page.fashion.Layout import Layout
+from page.epsilon.epsilon import Layout
 
 
-def Fashion():
+def Epsilon():
     return html.Div(
         [Layout()],
         className="relative",

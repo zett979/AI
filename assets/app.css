@@ -1,3 +1,32 @@
+:root {
+  --base: #eeffff;
+  --soft_blue: #e3f4f4;
+  --light_primary: #d2e9e9;
+  --primary-disabled: #9BADAD;
+  --primary: #c4dfdf;
+  --foreground: #141717;
+
+  --secondary: #ffeeee;
+  --secondary_hover: #f9eaea;
+  --secondary_light: #fff6f6;
+  --secondary_disabled: #e8d7d7;
+
+  --success: #a2e995;
+  --success_hover: #8ac67f;
+  --success_light: #b3ffa5;
+  --success_disabled: #6d9865;
+
+  --warning: #fadfa1;
+  --warning_hover: #dfc790;
+  --warning_light: #fce1a5;
+  --warning_disabled: #c1ac7c;
+
+  --error: #e55757;
+  --error_hover: #ca4b4b;
+  --error_light: #ff6565;
+  --error_disabled: #a93a3a;
+}
+
 .navbar {
   box-shadow: 0 0 25px 0 hsla(180, 30%, 82%, 0.5);
 }
@@ -128,4 +157,19 @@ input[type="checkbox"]:checked::after {
 
 .active-svg path{
   stroke: #141717;
+}
+
+.input {
+  background-color: var(--soft_blue);
+  color: var(--foreground);
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid var(--primary);
+  transition: border ease-in-out 300ms;
+}
+.input:focus{
+  border: 1px solid var(--primary-disabled)
+}
+.input::placeholder{
+    color: var(--primary-disabled)
 }

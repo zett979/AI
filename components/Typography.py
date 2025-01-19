@@ -6,8 +6,8 @@ class TypographyVariants(Enum):
     HEADING1 = "heading1"
     HEADING2 = "heading2"
     HEADING3 = "heading3"
-    BODY1 = ("BODY1",)
-    BODY2 = "BODY2"
+    BODY1 = "body1"
+    BODY2 = "body2"
 
 
 def getTypographyStyles(typgraphy: TypographyVariants, extraClassName):
