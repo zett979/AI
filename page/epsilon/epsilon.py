@@ -158,7 +158,32 @@ def Layout():
                             ],
                             className="absolute right-3 top-3",
                         ),
-                        P("Label Setup", variant="body1"),
+                        html.Div(
+                            children=[
+                                P("Label Setup", variant="body1"),
+                                # New Button for Uploading Labels CSV
+                                html.Div(
+                                    id="labels-upload-container",
+                                    children=[
+                                        Button(
+                                            [
+                                                dcc.Upload(
+                                                    children="Upload Labels CSV",
+                                                    id="labels-upload",
+                                                ),
+                                            ],
+                                            variant="primary",
+                                            size="sm",
+                                            id="labels-upload-button",
+                                            style={
+                                                "display": "none"
+                                            },  # Initially hidden
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            className="flex gap-2 items-center",
+                        ),
                         html.Div(
                             children=[],
                             id="label-inputs",
@@ -171,10 +196,67 @@ def Layout():
                 id="label-dialog",
                 className="w-full h-full hidden fixed left-0 top-0 z-[120] bg-black/20",
                 style={"display": "none"},
-            )
+            ),
         ],
         className="relative px-10 my-4 flex flex-col gap-4",
     )
+
+
+@callback(
+    Output("labels-upload-button", "style"),
+    Input("model-upload", "contents"),
+)
+def show_labels_upload_button(model_contents):
+    if model_contents is not None:
+        return {"display": "block"}  # Show the button
+    return {"display": "none"}  # Hide the button
+
+
+@callback(
+    Output("label-inputs", "children", allow_duplicate=True),
+    Input("labels-upload", "contents"),
+    prevent_initial_call=True,
+)
+def handle_labels_upload(contents):
+    if contents is None:
+        return dash.no_update
+
+    # Decode the uploaded CSV file
+    content_type, content_string = contents.split(",")
+    decoded = io.BytesIO(base64.b64decode(content_string))
+    
+    try:
+        # Read the CSV file
+        df = pd.read_csv(decoded)
+        print(df)
+        labels = df.iloc[:, 0].values  # Assuming the first column contains the labels
+
+        # Update the labels_map
+        global labels_map
+        labels_map = {i: label for i, label in enumerate(labels)}
+
+        # Generate the input components dynamically based on labels_map
+        label_inputs = [
+            html.Div(
+                children=[
+                    html.Label(f"Label {i}"),
+                    dcc.Input(
+                        id={"type": "label-input", "index": i},
+                        type="text",
+                        value=label,
+                        className="input flex-1",
+                    ),
+                ],
+                className="flex flex-col gap-2",
+            )
+            for i, label in enumerate(labels)
+        ]
+
+        return label_inputs
+
+    except Exception as e:
+        print(f"Error processing labels CSV file: {e}")
+        return dash.no_update
 
 
 @callback(
@@ -184,7 +266,7 @@ def Layout():
 def update_labels(input_values):
     print("Input values:", input_values)
     global labels_map
-    
+
     # Check if any input value has changed and update the labels_map accordingly
     for i, value in enumerate(input_values):
         if value != labels_map.get(i, ""):  # Only update if the value has changed
@@ -205,9 +287,11 @@ def update_labels(input_values):
             ],
             className="flex flex-col gap-2",
         )
-        for i in range(len(labels_map))  # Ensure we are generating inputs for all available labels
+        for i in range(
+            len(labels_map)
+        )  # Ensure we are generating inputs for all available labels
     ]
-    
+
     return label_inputs
 
 
