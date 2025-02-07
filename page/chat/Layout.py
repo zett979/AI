@@ -1,7 +1,35 @@
 from components.Typography import P
 from api.ollama import getModelName, chatToModel
-from dash import html, callback, Input, Output, dcc, ctx
+from dash import (
+    html,
+    callback,
+    Input,
+    Output,
+    dcc,
+    ctx,
+    Dash,
+    DiskcacheManager,
+    CeleryManager,
+)
 import dash
+import time
+import os
+
+if "REDIS_URL" in os.environ:
+    # Use Redis & Celery if REDIS_URL set as an env variable
+    from celery import Celery
+
+    celery_app = Celery(
+        __name__, broker=os.environ["REDIS_URL"], backend=os.environ["REDIS_URL"]
+    )
+    background_callback_manager = CeleryManager(celery_app)
+
+else:
+    # Diskcache for non-production apps when developing locally
+    import diskcache
+
+    cache = diskcache.Cache("./cache")
+    background_callback_manager = DiskcacheManager(cache)
 
 PROMPT = ""
 LOADING = False
@@ -88,8 +116,8 @@ def onChatClick(chats, n_clicks, input):
     global LOADING, CLICKS
     if n_clicks > CLICKS and LOADING == False and input != "":
         new_chats = chats.copy()
-        new_chats.append({"type": "User", "message": input})
-        new_chats.append({"type": "Loading", "message": ""})
+        new_chats.append({"type": "User", "message": input})  # User message
+        new_chats.append({"type": "Loading", "message": ""})  # Loading placeholder
         CLICKS = n_clicks
         LOADING = True
         return new_chats, n_clicks, True
@@ -105,14 +133,16 @@ def onChatClick(chats, n_clicks, input):
     Input("real-chat-btn", "n_clicks_timestamp"),
     Input("chat-input", "value"),
     prevent_initial_call=True,
+    background=True,
+    manager=background_callback_manager,
 )
 def onChat(chats, n_clicks, input):
     global LOADING
     new_chats = chats.copy()
     if LOADING == True:
-        response = chatToModel(input)
-        new_chats.pop()
-        new_chats.append({"type": "AI", "message": response})
+        response = chatToModel(input)  # Get response from Ollama
+        new_chats.pop()  # Remove the loading message
+        new_chats.append({"type": "AI", "message": response})  # Add AI response
         LOADING = False
         return new_chats, "", False
     else:
@@ -127,7 +157,6 @@ def updateChats(chats):
             html.Div(
                 children=f"{chat['message']}",
                 className=f"flex w-fit max-w-[300px] p-2 bg-[#C4DFDF] rounded-md {'ml-auto' if chat['type'] == 'User' else ''} {'animate-pulse !w-32 h-5' if chat['type'] == 'Loading' else ''}",
-
             )
         )
     return children
