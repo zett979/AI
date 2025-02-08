@@ -14,10 +14,18 @@ import dash
 from components.Button import Button
 from components.Typography import P
 from PIL import Image
-from dash import html, callback, dcc, State, Output, Input, ALL
+from dash import (
+    html,
+    callback,
+    dcc,
+    State,
+    Output,
+    Input,
+    ALL,
+)
 from sklearn.metrics import classification_report, confusion_matrix
 from dash import dash_table
-from utils import create_classification_report_table
+from utils.utils import create_classification_report_table
 
 # Initialize global variables
 image_tensors = []
@@ -52,6 +60,7 @@ def Layout():
                                 variant="primary",
                                 size="sm",
                                 className="flex gap-2",
+                                id="model-upload-button",
                             ),
                         ],
                     ),
@@ -66,6 +75,7 @@ def Layout():
                                 ],
                                 variant="primary",
                                 size="sm",
+                                id="dataset-upload-button",
                             )
                         ],
                     ),
@@ -90,58 +100,81 @@ def Layout():
             ),
             # Results Section - Side by Side
             html.Div(
-                children=[
-                    # Left Side (Original Model)
-                    html.Div(
-                        children=[
-                            P(
-                                "Original Model Predictions",
-                                variant="body1",
-                                className="text-center",
-                            ),
-                            # Confusion Matrix
-                            html.Div(
-                                id="confusion-matrix-before", className="text-center"
-                            ),
-                            # Classification Report
-                            P(
-                                "Classification Report",
-                                variant="body1",
-                                className="text-center",
-                            ),
-                            html.Div(
-                                id="classification-report-before",
-                                style={"textAlign": "center"},
-                            ),
-                        ],
-                        className="w-full flex flex-col gap-3",
-                    ),
-                    # Right Side (After Attack)
-                    html.Div(
-                        children=[
-                            P(
-                                "After FGSM Attack",
-                                variant="body1",
-                                className="text-center",
-                            ),
-                            # Confusion Matrix
-                            html.Div(
-                                id="confusion-matrix-after", className="text-center"
-                            ),
-                            # Classification Report
-                            P(
-                                "Classification Report",
-                                variant="body1",
-                                className="text-center",
-                            ),
-                            html.Div(
-                                id="classification-report-after",
-                                className="text-center",
-                            ),
-                        ],
-                        className="w-full flex flex-col gap-3",
-                    ),
-                ],
+                children=(
+                    [
+                        # Left Side (Original Model)
+                        html.Div(
+                            children=[
+                                P(
+                                    "Original Model Predictions",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-predictions-before",
+                                ),
+                                # Confusion Matrix
+                                html.Div(
+                                    id="confusion-matrix-before",
+                                    className="text-center",
+                                ),
+                                # Classification Report
+                                P(
+                                    "Classification Report",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-report-before",
+                                ),
+                                html.Div(
+                                    id="classification-report-before",
+                                    style={"textAlign": "center"},
+                                ),
+                            ],
+                            className="w-full flex flex-col gap-3",
+                        ),
+                        # Right Side (After Attack)
+                        html.Div(
+                            children=[
+                                P(
+                                    "After FGSM Attack",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-predictions-after",
+                                ),
+                                # Confusion Matrix
+                                html.Div(
+                                    id="confusion-matrix-after", className="text-center"
+                                ),
+                                # Classification Report
+                                P(
+                                    "Classification Report",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-report-after",
+                                ),
+                                html.Div(
+                                    id="classification-report-after",
+                                    className="text-center",
+                                ),
+                            ],
+                            className="w-full flex flex-col gap-3",
+                        ),
+                    ]
+                ),
                 className="grid xl:grid-cols-2 grid-cols-1 gap-5",
             ),
             # Label Dialog
@@ -224,7 +257,7 @@ def handle_labels_upload(contents):
     # Decode the uploaded CSV file
     content_type, content_string = contents.split(",")
     decoded = io.BytesIO(base64.b64decode(content_string))
-    
+
     try:
         # Read the CSV file
         df = pd.read_csv(decoded)
@@ -343,6 +376,10 @@ def handleFileUpload(contents, filename):
     [
         Output("confusion-matrix-before", "children"),
         Output("classification-report-before", "children"),
+        Output("loading-predictions-before", "style", allow_duplicate=True),
+        Output("loading-report-before", "style", allow_duplicate=True),
+        Output("dataset-upload-button", "disabled", allow_duplicate=True),
+        Output("model-upload-button", "disabled", allow_duplicate=True),
     ],
     Input("dataset-upload", "contents"),
     State("model-upload", "contents"),
@@ -446,8 +483,14 @@ def handle_csv_upload(contents, model_contents):
                 },
             ],
         )
-
-        return cm_display, report_table
+        return (
+            cm_display,
+            report_table,
+            {"display": "none"},
+            {"display": "none"},
+            False,
+            False,
+        )
 
     except Exception as e:
         print(f"Error processing CSV file: {e}")
@@ -521,6 +564,10 @@ def fgsm_attack(model, images, labels, epsilon):
     [
         Output("confusion-matrix-after", "children"),
         Output("classification-report-after", "children"),
+        Output("loading-predictions-after", "style", allow_duplicate=True),
+        Output("loading-report-after", "style", allow_duplicate=True),
+        Output("dataset-upload-button", "disabled", allow_duplicate=True),
+        Output("model-upload-button", "disabled", allow_duplicate=True),
     ],
     Input("epsilon-slider", "value"),
     State("dataset-upload", "contents"),
@@ -626,8 +673,40 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             ],
         )
 
-        return cm_display, report_table
+        return (
+            cm_display,
+            report_table,
+            {"display": "none"},
+            {"display": "none"},
+            False,
+            False,
+        )
 
     except Exception as e:
         print(f"Error during FGSM attack: {str(e)}")
         return html.Div(f"Error: {str(e)}"), ""
+
+
+@callback(
+    Output("loading-predictions-before", "style"),
+    Output("loading-report-before", "style"),
+    Output("dataset-upload-button", "disabled"),
+    Output("model-upload-button", "disabled"),
+    Input("dataset-upload", "contents"),
+    State("model-upload", "contents"),
+    prevent_initial_call=True,
+)
+def onBeforeCalculation(contents, model):
+    return {"display": "block"}, {"display": "block"}, True, True
+
+
+@callback(
+    Output("loading-predictions-after", "style"),
+    Output("loading-report-after", "style"),
+    Output("confusion-matrix-after", "children", allow_duplicate=True),
+    Output("classification-report-after", "children", allow_duplicate=True),
+    Input("epsilon-slider", "value"),
+    prevent_initial_call=True,
+)
+def onAfterCalculation(epsilon):
+    return {"display": "block"}, {"display": "block"}, [], []

@@ -2,8 +2,11 @@ import dash
 from dash import Dash, html, Output, Input, ctx
 from components.Button import Button
 from page.DataDialog import DataDialog
+from utils.CacheManager import background_callback_manager
 
-app = Dash(__name__, use_pages=True)
+app = Dash(
+    __name__, use_pages=True, background_callback_manager=background_callback_manager
+)
 
 app.layout = html.Div(
     [
