@@ -25,7 +25,13 @@ from dash import (
 )
 from sklearn.metrics import classification_report, confusion_matrix
 from dash import dash_table
-from utils.utils import create_classification_report_table
+from utils.utils import (
+    create_classification_report_table,
+    plot_confusion_matrix,
+    fgsm_attack,
+    compute_shap_values,
+    plot_shap_heatmap,
+)
 
 # Initialize global variables
 image_tensors = []
@@ -134,6 +140,9 @@ def Layout():
                                 html.Div(
                                     id="classification-report-before",
                                     style={"textAlign": "center"},
+                                ),
+                                html.Div(
+                                    id="shap-visualization-before",
                                 ),
                             ],
                             className="w-full flex flex-col gap-3",
@@ -380,6 +389,7 @@ def handleFileUpload(contents, filename):
         Output("loading-report-before", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
+        Output("shap-visualization-before", "children"),
     ],
     Input("dataset-upload", "contents"),
     State("model-upload", "contents"),
@@ -439,7 +449,7 @@ def handle_csv_upload(contents, model_contents):
 
         # Confusion matrix
         cm = confusion_matrix(true_labels, predictions.cpu().numpy())
-        cm_display = plot_confusion_matrix(cm)
+        cm_display = plot_confusion_matrix(cm, labels_map)
 
         # Generate classification report
         report = classification_report(
@@ -483,6 +493,37 @@ def handle_csv_upload(contents, model_contents):
                 },
             ],
         )
+
+        shapey_labels = df.iloc[:, 0].values
+
+        # Shapey values
+        try:
+            # Process images for SHAP
+            shapey_images = df.iloc[:, 1:].values.reshape(-1, 28, 28)
+            # Use the same transformer as the main model for consistency
+            processed_images = []
+            for img in shapey_images[:100]:  # Use first 100 images as background
+                tensor = transformer(Image.fromarray(img.astype(np.uint8)))
+                processed_images.append(tensor)
+
+            background = torch.stack(processed_images).to(device)
+
+            # Process sample images
+            sample_processed = []
+            for img in shapey_images[:5]:  # Use first 5 images as samples
+                tensor = transformer(Image.fromarray(img.astype(np.uint8)))
+                sample_processed.append(tensor)
+
+            sample_images = torch.stack(sample_processed).to(device)
+
+            # Compute SHAP values
+            shap_values = compute_shap_values(model, sample_images, background)
+            shap_plot = plot_shap_heatmap(
+                shap_values, sample_images.cpu(), shapey_labels[:5], labels_map
+            )
+        except Exception as e:
+            print(f"Error computing SHAP values: {e}")
+            shap_plot = html.Div("Error computing SHAP values")
         return (
             cm_display,
             report_table,
@@ -490,74 +531,14 @@ def handle_csv_upload(contents, model_contents):
             {"display": "none"},
             False,
             False,
+            plot_shap_heatmap(
+                shap_values, sample_images, shapey_labels[:5], labels_map
+            ),
         )
 
     except Exception as e:
         print(f"Error processing CSV file: {e}")
         return "Error processing CSV file.", "", ""
-
-
-def plot_confusion_matrix(cm):
-    # Set figure size to be consistent for both matrices
-    plt.figure(figsize=(8, 6))  # Adjust size for better side-by-side display
-
-    # Create heatmap with consistent font sizes
-    sns.heatmap(
-        cm,
-        annot=True,
-        fmt="d",
-        cmap="Blues",
-        xticklabels=labels_map.values(),
-        yticklabels=labels_map.values(),
-        annot_kws={"size": 8},  # Adjust font size for better readability
-    )
-
-    # Customize labels with consistent font sizes
-    plt.xlabel("Predicted", fontsize=10)
-    plt.ylabel("True", fontsize=10)
-    plt.title("Confusion Matrix", fontsize=12)
-
-    # Rotate x-axis labels for better readability
-    plt.xticks(rotation=45, ha="right")
-    plt.yticks(rotation=0)
-
-    # Adjust layout to prevent label cutoff
-    plt.tight_layout()
-
-    # Save to buffer
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=150)  # Increased DPI for better quality
-    buf.seek(0)
-    img_str = base64.b64encode(buf.read()).decode("utf-8")
-    plt.close()
-
-    # Return the image with specific width to ensure consistent sizing
-    return html.Img(
-        src=f"data:image/png;base64,{img_str}",
-        style={"width": "100%", "maxWidth": "700px"},  # Ensure consistent sizing
-    )
-
-
-def fgsm_attack(model, images, labels, epsilon):
-    """
-    Performs FGSM attack on the given images
-    """
-    images.requires_grad = True
-
-    outputs = model(images)
-    loss = torch.nn.CrossEntropyLoss()(outputs, labels)
-
-    # Calculate gradients
-    model.zero_grad()
-    loss.backward()
-
-    # Create perturbation
-    perturbed_images = images + epsilon * images.grad.data.sign()
-
-    # Ensure values stay in valid range [0,1]
-    perturbed_images = torch.clamp(perturbed_images, 0, 1)
-
-    return perturbed_images
 
 
 @callback(
@@ -628,7 +609,7 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
         cm = confusion_matrix(true_labels, perturbed_predictions.cpu().numpy())
 
         # Plot confusion matrix using your existing function
-        cm_display = plot_confusion_matrix(cm)
+        cm_display = plot_confusion_matrix(cm, labels_map)
 
         # Generate classification report
         report = classification_report(

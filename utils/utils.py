@@ -3,9 +3,12 @@ import torch
 import seaborn as sns
 import base64
 import io
-
+import shap
+import numpy as np
 from torch import nn
 from dash import html
+
+
 def create_classification_report_table(report_dict):
     """Convert classification report to a formatted DataFrame for Dash table"""
     # Extract metrics for each class
@@ -113,3 +116,74 @@ def fgsm_attack(model, images, labels, epsilon):
     perturbed_images = torch.clamp(perturbed_images, 0, 1)
 
     return perturbed_images
+
+
+def plot_shap_heatmap(shap_values, images, labels, labels_map):
+    try:
+        num_images = len(images)
+        fig, axes = plt.subplots(2, num_images, figsize=(15, 6))
+
+        for i in range(num_images):
+            predicted_class = labels[i]
+
+            # Original Image
+            orig_img = images[i].squeeze().cpu().numpy()
+            axes[0, i].imshow(orig_img, cmap="gray")
+            axes[0, i].set_title(f"Original: {labels_map[predicted_class]}")
+            axes[0, i].axis("off")
+
+            # SHAP Heatmap
+            # Extract SHAP values for this image and remove the channel dimension
+            image_shap = shap_values[i].squeeze(0)  # Remove batch dimension
+
+            # Sum absolute values across the class dimension (last dimension)
+            importance_map = np.abs(image_shap).sum(axis=-1)
+
+            # Normalize for better visualization
+            importance_map = (importance_map - importance_map.min()) / (
+                importance_map.max() - importance_map.min() + 1e-8
+            )
+
+            axes[1, i].imshow(importance_map, cmap="hot")
+            axes[1, i].set_title("Feature Importance")
+            axes[1, i].axis("off")
+
+        plt.tight_layout()
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=150)
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode("utf-8")
+        plt.close()
+        return html.Img(src=f"data:image/png;base64,{img_str}", style={"width": "100%"})
+    except Exception as e:
+        print(f"Error in SHAP visualization: {str(e)}")
+        print(f"SHAP values shape: {shap_values.shape}")
+        print(f"Images shape: {images.shape}")
+        return html.Div(
+            [
+                html.P(f"Error visualizing SHAP values: {str(e)}"),
+                html.P(f"SHAP values shape: {shap_values.shape}"),
+                html.P(f"Images shape: {images.shape}"),
+            ]
+        )
+
+
+def compute_shap_values(model, images, background):
+    try:
+        explainer = shap.GradientExplainer(model, background)
+        shap_values = explainer.shap_values(images)
+
+        # Convert to numpy array if it's not already
+        if isinstance(shap_values, list):
+            shap_values = np.array(shap_values)
+            shap_values = np.transpose(
+                shap_values, (1, 2, 3, 4, 0)
+            )  # Rearrange to (N, C, H, W, num_classes)
+
+        print(f"SHAP values type: {type(shap_values)}")
+        print(f"Shape of SHAP values: {shap_values.shape}")
+        return shap_values
+
+    except Exception as e:
+        print(f"Error in SHAP computation: {e}")
+        raise
