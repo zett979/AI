@@ -31,6 +31,8 @@ from utils.utils import (
     fgsm_attack,
     compute_shap_values,
     plot_shap_heatmap,
+    compute_shap_values_after,
+    plot_shap_heatmap_after
 )
 
 # Initialize global variables
@@ -178,6 +180,9 @@ def Layout():
                                 html.Div(
                                     id="classification-report-after",
                                     className="text-center",
+                                ),
+                                html.Div(
+                                    id="shap-visualization-after",
                                 ),
                             ],
                             className="w-full flex flex-col gap-3",
@@ -549,6 +554,7 @@ def handle_csv_upload(contents, model_contents):
         Output("loading-report-after", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
+        Output("shap-visualization-after", "children"),
     ],
     Input("epsilon-slider", "value"),
     State("dataset-upload", "contents"),
@@ -654,6 +660,24 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             ],
         )
 
+        # Compute SHAP values for perturbed images
+        try:
+            # Use first 100 perturbed images as background
+            background = perturbed_images[:100].clone().detach().requires_grad_(True)
+            
+            # Use first 5 perturbed images as samples
+            sample_images = perturbed_images[:5].clone().detach().requires_grad_(True)
+            sample_labels = labels_tensor[:5]
+
+            # Compute SHAP values
+            shap_values = compute_shap_values(model, sample_images, background)
+            shap_plot = plot_shap_heatmap(
+                shap_values, sample_images.cpu(), sample_labels.cpu(), labels_map
+            )
+        except Exception as e:
+            print(f"Error computing SHAP values for perturbed images: {e}")
+            shap_plot = html.Div("Error computing SHAP values for perturbed images")
+
         return (
             cm_display,
             report_table,
@@ -661,11 +685,20 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             {"display": "none"},
             False,
             False,
+            shap_plot,
         )
 
     except Exception as e:
         print(f"Error during FGSM attack: {str(e)}")
-        return html.Div(f"Error: {str(e)}"), ""
+        return (
+            html.Div(f"Error: {str(e)}"),
+            "",
+            {"display": "none"},
+            {"display": "none"},
+            False,
+            False,
+            html.Div(""),
+        )
 
 
 @callback(
