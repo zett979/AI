@@ -124,6 +124,12 @@ def fgsm_attack(model, images, labels, epsilon):
 
 def plot_shap_heatmap(shap_values, images, labels, labels_map):
     try:
+        # Ensure shap_values and images are numpy arrays
+        if isinstance(shap_values, torch.Tensor):
+            shap_values = shap_values.detach().cpu().numpy()
+        if isinstance(images, torch.Tensor):
+            images = images.detach().cpu().numpy()
+
         num_images = len(images)
         fig, axes = plt.subplots(2, num_images, figsize=(15, 6))
 
@@ -131,7 +137,7 @@ def plot_shap_heatmap(shap_values, images, labels, labels_map):
             predicted_class = labels[i]
 
             # Original Image
-            orig_img = images[i].squeeze().cpu().numpy()
+            orig_img = images[i].squeeze()
             axes[0, i].imshow(orig_img, cmap="gray")
             axes[0, i].set_title(f"Original: {labels_map[predicted_class]}")
             axes[0, i].axis("off")

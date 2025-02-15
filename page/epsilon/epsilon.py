@@ -671,8 +671,11 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
 
             # Compute SHAP values
             shap_values = compute_shap_values(model, sample_images, background)
-            shap_plot = plot_shap_heatmap(
-                shap_values, sample_images.cpu(), sample_labels.cpu(), labels_map
+            shap_plot = plot_shap_heatmap_after(
+                shap_values,
+                sample_images.detach().cpu().numpy(), 
+                sample_labels.cpu(), 
+                labels_map
             )
         except Exception as e:
             print(f"Error computing SHAP values for perturbed images: {e}")
