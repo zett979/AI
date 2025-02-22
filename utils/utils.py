@@ -131,32 +131,40 @@ def plot_shap_heatmap(shap_values, images, labels, labels_map):
             images = images.detach().cpu().numpy()
 
         num_images = len(images)
-        fig, axes = plt.subplots(2, num_images, figsize=(15, 6))
+        fig, axes = plt.subplots(3, num_images, figsize=(20, 6))
+
+        # Define the custom colormap (blue to red)
+        colors = ["#1f77b4", "#ffffff", "#ff7f7f"]
+        custom_cmap = plt.cm.RdBu
 
         for i in range(num_images):
             predicted_class = labels[i]
 
-            # Original Image
+            # Original Image (grayscale)
             orig_img = images[i].squeeze()
             axes[0, i].imshow(orig_img, cmap="gray")
             axes[0, i].set_title(f"Original: {labels_map[predicted_class]}")
             axes[0, i].axis("off")
 
-            # SHAP Heatmap
-            # Extract SHAP values for this image and remove the channel dimension
-            image_shap = shap_values[i].squeeze(0)  # Remove batch dimension
+            # SHAP values for each class
+            image_shap = shap_values[i].squeeze()
 
-            # Sum absolute values across the class dimension (last dimension)
-            importance_map = np.abs(image_shap).sum(axis=-1)
-
-            # Normalize for better visualization
-            importance_map = (importance_map - importance_map.min()) / (
-                importance_map.max() - importance_map.min() + 1e-8
-            )
-
-            axes[1, i].imshow(importance_map, cmap="hot")
-            axes[1, i].set_title("Feature Importance")
+            # For visualization similar to your example:
+            # Display raw SHAP values with diverging colormap
+            shap_img = image_shap.sum(axis=-1)  # Sum across class dimension
+            vmax = np.abs(shap_img).max()
+            im = axes[1, i].imshow(shap_img, cmap=custom_cmap, vmin=-vmax, vmax=vmax)
+            axes[1, i].set_title("SHAP Values")
             axes[1, i].axis("off")
+
+            # Absolute SHAP values
+            abs_shap = np.abs(shap_img)
+            axes[2, i].imshow(abs_shap, cmap="Reds")
+            axes[2, i].set_title("Absolute SHAP Values")
+            axes[2, i].axis("off")
+
+        # Add colorbar
+        # plt.colorbar(im, ax=axes.ravel().tolist(), label="SHAP value")
 
         plt.tight_layout()
         buf = io.BytesIO()
@@ -167,13 +175,15 @@ def plot_shap_heatmap(shap_values, images, labels, labels_map):
         return html.Img(src=f"data:image/png;base64,{img_str}", style={"width": "100%"})
     except Exception as e:
         print(f"Error in SHAP visualization: {str(e)}")
-        print(f"SHAP values shape: {shap_values.shape}")
-        print(f"Images shape: {images.shape}")
         return html.Div(
             [
                 html.P(f"Error visualizing SHAP values: {str(e)}"),
-                html.P(f"SHAP values shape: {shap_values.shape}"),
-                html.P(f"Images shape: {images.shape}"),
+                html.P(
+                    f"SHAP values shape: {shap_values.shape if hasattr(shap_values, 'shape') else 'unknown'}"
+                ),
+                html.P(
+                    f"Images shape: {images.shape if hasattr(images, 'shape') else 'unknown'}"
+                ),
             ]
         )
 
