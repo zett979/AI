@@ -31,7 +31,7 @@ from utils.utils import (
     fgsm_attack,
     compute_shap_values,
     plot_shap_heatmap,
-    plot_shap_heatmap_after
+    plot_shap_heatmap_after,
 )
 
 # Initialize global variables
@@ -142,6 +142,16 @@ def Layout():
                                     id="classification-report-before",
                                     style={"textAlign": "center"},
                                 ),
+                                P(
+                                    "Shap Report",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-shap-before",
+                                ),
                                 html.Div(
                                     id="shap-visualization-before",
                                 ),
@@ -179,6 +189,16 @@ def Layout():
                                 html.Div(
                                     id="classification-report-after",
                                     className="text-center",
+                                ),
+                                P(
+                                    "Shap Report",
+                                    variant="body1",
+                                    className="text-center",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-shap-after",
                                 ),
                                 html.Div(
                                     id="shap-visualization-after",
@@ -263,23 +283,26 @@ def show_labels_upload_button(model_contents):
     Input("labels-upload", "contents"),
     prevent_initial_call=True,
 )
-def handle_labels_upload(contents):
-    if contents is None:
+def handle_labels_upload(label_contents):
+    if label_contents is None:
         return dash.no_update
 
     # Decode the uploaded CSV file
-    content_type, content_string = contents.split(",")
-    decoded = io.BytesIO(base64.b64decode(content_string))
+    label_content_type, label_content_string = label_contents.split(",")
+    label_decoded = io.BytesIO(base64.b64decode(label_content_string))
 
     try:
-        # Read the CSV file
-        df = pd.read_csv(decoded)
+        df = pd.read_csv(label_decoded)
         print(df)
-        labels = df.iloc[:, 0].values  # Assuming the first column contains the labels
+        labels = df.iloc[:, 0].values
+
+        labels_list = list(labels)[:10]  # Ensure max 10 labels
+        while len(labels_list) < 10:
+            labels_list.append("")  # Fill missing labels with ""
 
         # Update the labels_map
         global labels_map
-        labels_map = {i: label for i, label in enumerate(labels)}
+        labels_map = {i: label for i, label in enumerate(labels_list)}
 
         # Generate the input components dynamically based on labels_map
         label_inputs = [
@@ -295,7 +318,7 @@ def handle_labels_upload(contents):
                 ],
                 className="flex flex-col gap-2",
             )
-            for i, label in enumerate(labels)
+            for i, label in labels_map.items()
         ]
 
         return label_inputs
@@ -369,7 +392,15 @@ def handleFileUpload(contents, filename):
     # Check for CUDA support
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)  # Move the model to the right device
-
+    for module in model.modules():
+        if hasattr(module, "in_features"):
+            sample_shape = (1, module.in_features)
+            print("In features", sample_shape)
+            break
+        elif hasattr(module, "input_dim"):
+            sample_shape = (1, module.input_dim)
+            print("In features", sample_shape)
+            break
     # Print the model's output shape with a dummy input tensor
     input_tensor = torch.randn(1, 1, 28, 28).to(device)
     with torch.no_grad():
@@ -391,6 +422,7 @@ def handleFileUpload(contents, filename):
         Output("classification-report-before", "children"),
         Output("loading-predictions-before", "style", allow_duplicate=True),
         Output("loading-report-before", "style", allow_duplicate=True),
+        Output("loading-shap-before", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
         Output("shap-visualization-before", "children"),
@@ -502,11 +534,11 @@ def handle_csv_upload(contents, model_contents):
 
         # Shapey values
         try:
-            # Process images for SHAP
+
             shapey_images = df.iloc[:, 1:].values.reshape(-1, 28, 28)
-            # Use the same transformer as the main model for consistency
+
             processed_images = []
-            for img in shapey_images[:100]:  # Use first 100 images as background
+            for img in shapey_images[:100]:
                 tensor = transformer(Image.fromarray(img.astype(np.uint8)))
                 processed_images.append(tensor)
 
@@ -522,15 +554,13 @@ def handle_csv_upload(contents, model_contents):
 
             # Compute SHAP values
             shap_values = compute_shap_values(model, sample_images, background)
-            shap_plot = plot_shap_heatmap(
-                shap_values, sample_images.cpu(), shapey_labels[:5], labels_map
-            )
         except Exception as e:
             print(f"Error computing SHAP values: {e}")
             shap_plot = html.Div("Error computing SHAP values")
         return (
             cm_display,
             report_table,
+            {"display": "none"},
             {"display": "none"},
             {"display": "none"},
             False,
@@ -551,6 +581,7 @@ def handle_csv_upload(contents, model_contents):
         Output("classification-report-after", "children"),
         Output("loading-predictions-after", "style", allow_duplicate=True),
         Output("loading-report-after", "style", allow_duplicate=True),
+        Output("loading-shap-after", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
         Output("shap-visualization-after", "children"),
@@ -659,23 +690,22 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             ],
         )
 
-        # Compute SHAP values for perturbed images
+        shapey_labels = df.iloc[:, 0].values
         try:
-            # Use first 100 perturbed images as background
-            background = perturbed_images[:100].clone().detach().requires_grad_(True)
-            
-            # Use first 5 perturbed images as samples
-            sample_images = perturbed_images[:5].clone().detach().requires_grad_(True)
-            sample_labels = labels_tensor[:5]
+            perturbed_cpu = perturbed_images.cpu()
 
-            # Compute SHAP values
+            background = perturbed_cpu[:100]
+
+            sample_images = perturbed_cpu[:5]
+
+            shapey_labels = df.iloc[:, 0].values[:5]
+
             shap_values = compute_shap_values(model, sample_images, background)
-            shap_plot = plot_shap_heatmap_after(
-                shap_values,
-                sample_images.detach().cpu().numpy(), 
-                sample_labels.cpu(), 
-                labels_map
+
+            shap_plot = plot_shap_heatmap(
+                shap_values, sample_images, shapey_labels, labels_map
             )
+
         except Exception as e:
             print(f"Error computing SHAP values for perturbed images: {e}")
             shap_plot = html.Div("Error computing SHAP values for perturbed images")
@@ -685,9 +715,12 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             report_table,
             {"display": "none"},
             {"display": "none"},
+            {"display": "none"},
             False,
             False,
-            shap_plot,
+            plot_shap_heatmap(
+                shap_values, sample_images, shapey_labels[:5], labels_map
+            ),
         )
 
     except Exception as e:
@@ -695,6 +728,7 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
         return (
             html.Div(f"Error: {str(e)}"),
             "",
+            {"display": "none"},
             {"display": "none"},
             {"display": "none"},
             False,
@@ -706,6 +740,7 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
 @callback(
     Output("loading-predictions-before", "style"),
     Output("loading-report-before", "style"),
+    Output("loading-shap-before", "style"),
     Output("dataset-upload-button", "disabled"),
     Output("model-upload-button", "disabled"),
     Input("dataset-upload", "contents"),
@@ -713,16 +748,17 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
     prevent_initial_call=True,
 )
 def onBeforeCalculation(contents, model):
-    return {"display": "block"}, {"display": "block"}, True, True
+    return {"display": "block"}, {"display": "block"}, {"display": "block"}, True, True
 
 
 @callback(
     Output("loading-predictions-after", "style"),
     Output("loading-report-after", "style"),
+    Output("loading-shap-after", "style"),
     Output("confusion-matrix-after", "children", allow_duplicate=True),
     Output("classification-report-after", "children", allow_duplicate=True),
     Input("epsilon-slider", "value"),
     prevent_initial_call=True,
 )
 def onAfterCalculation(epsilon):
-    return {"display": "block"}, {"display": "block"}, [], []
+    return {"display": "block"}, {"display": "block"}, {"display": "block"}, [], []
