@@ -37,8 +37,9 @@ from utils.utils import (
 # Initialize global variables
 image_tensors = []
 true_labels = []
+input_tensor_shape = [1, 1, 28, 28]  # Default shape for MNIST-like datasets
 
-labels_map = {0: ""}
+labels_map = {}
 
 transformer = transform.Compose(
     [transform.Grayscale(1), transform.Resize((28, 28)), transform.ToTensor()]
@@ -56,7 +57,7 @@ def Layout():
                             Button(
                                 [
                                     dcc.Upload(
-                                        children="File upload", id="model-upload"
+                                        children="Model upload", id="model-upload"
                                     ),
                                     html.Div(
                                         children="File name",
@@ -69,7 +70,20 @@ def Layout():
                                 className="flex gap-2",
                                 id="model-upload-button",
                             ),
+                            Button(
+                                children=[
+                                    html.Img(
+                                        src="/assets/images/icons/edit.svg",
+                                        className="size-5",
+                                    ),
+                                ],
+                                variant="primary",
+                                id="labels-modify",
+                                size="sm",
+                                n_clicks=0,
+                            ),
                         ],
+                        className="flex gap-3",
                     ),
                     html.Div(
                         children=[
@@ -88,6 +102,75 @@ def Layout():
                     ),
                 ],
                 className="flex flex-col gap-3",
+            ),
+            html.Div(
+                children=[
+                    P("Input Tensor Dimensions:", variant="body2"),
+                    html.Div(
+                        className="flex gap-2 items-center",
+                        children=[
+                            html.Div(
+                                className="flex gap-1 items-center",
+                                children=[
+                                    html.Label("Batch:", className="text-sm"),
+                                    dcc.Input(
+                                        id="dim-batch",
+                                        type="number",
+                                        value=1,
+                                        min=1,
+                                        className="input w-16",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="flex gap-1 items-center",
+                                children=[
+                                    html.Label("Channels:", className="text-sm"),
+                                    dcc.Input(
+                                        id="dim-channels",
+                                        type="number",
+                                        value=1,
+                                        min=1,
+                                        className="input w-16",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="flex gap-1 items-center",
+                                children=[
+                                    html.Label("Height:", className="text-sm"),
+                                    dcc.Input(
+                                        id="dim-height",
+                                        type="number",
+                                        value=28,
+                                        min=1,
+                                        className="input w-16",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="flex gap-1 items-center",
+                                children=[
+                                    html.Label("Width:", className="text-sm"),
+                                    dcc.Input(
+                                        id="dim-width",
+                                        type="number",
+                                        value=28,
+                                        min=1,
+                                        className="input w-16",
+                                    ),
+                                ],
+                            ),
+                            Button(
+                                "Apply",
+                                id="apply-dimensions",
+                                variant="secondary",
+                                size="sm",
+                            ),
+                        ],
+                    ),
+                ],
+                className="px-2 py-3 border border-gray-200 rounded-md",
             ),
             # Epsilon Slider Section
             html.Div(
@@ -268,9 +351,49 @@ def Layout():
     )
 
 
+# Input tensor shape callback
+@callback(
+    Output("dim-height", "value"),
+    Output("dim-width", "value"),
+    Input("apply-dimensions", "n_clicks"),
+    State("dim-batch", "value"),
+    State("dim-channels", "value"),
+    State("dim-height", "value"),
+    State("dim-width", "value"),
+    prevent_initial_call=True,
+)
+def update_tensor_dimensions(n_clicks, batch, channels, height, width):
+    global input_tensor_shape, transformer
+    input_tensor_shape = [batch, channels, height, width]
+
+    # Update the transformer to match the new dimensions
+    transformer = transform.Compose(
+        [
+            transform.Grayscale(channels),
+            transform.Resize((height, width)),
+            transform.ToTensor(),
+        ]
+    )
+
+    print(f"Updated input tensor shape to: {input_tensor_shape}")
+
+    return height, width
+
+
 @callback(
     Output("labels-upload-button", "style"),
     Input("model-upload", "contents"),
+)
+def show_labels_upload_button(model_contents):
+    if model_contents is not None:
+        return {"display": "block"}  # Show the button
+    return {"display": "none"}  # Hide the button
+
+
+@callback(
+    Output("label-dialog", "style", allow_duplicate=True),
+    Input("labels-modify", "n_clicks"),
+    prevent_initial_call=True,
 )
 def show_labels_upload_button(model_contents):
     if model_contents is not None:
@@ -382,9 +505,13 @@ def close_dialog(n_clicks):
     Output("label-dialog", "style"),
     Input("model-upload", "contents"),
     State("model-upload", "filename"),
+    State("dim-batch", "value"),
+    State("dim-channels", "value"),
+    State("dim-height", "value"),
+    State("dim-width", "value"),
     prevent_initial_call=True,
 )
-def handleFileUpload(contents, filename):
+def handleFileUpload(contents, filename, batch, channels, height, width):
     content_type, content_string = contents.split(",")
     decoded = io.BytesIO(base64.b64decode(content_string))
     model: torch.jit.ScriptModule = torch.jit.load(decoded)
@@ -392,25 +519,36 @@ def handleFileUpload(contents, filename):
     # Check for CUDA support
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)  # Move the model to the right device
-    for module in model.modules():
-        if hasattr(module, "in_features"):
-            sample_shape = (1, module.in_features)
-            print("In features", sample_shape)
-            break
-        elif hasattr(module, "input_dim"):
-            sample_shape = (1, module.input_dim)
-            print("In features", sample_shape)
-            break
-    # Print the model's output shape with a dummy input tensor
-    input_tensor = torch.randn(1, 1, 28, 28).to(device)
+
+    # Update global tensor shape based on current values in the UI
+    global input_tensor_shape, labels_map
+    input_tensor_shape = [batch, channels, height, width]
+    print(f"Using input tensor shape: {input_tensor_shape}")
+
+    # Create a dummy input tensor with the specified dimensions
+    input_tensor = torch.randn(*input_tensor_shape).to(device)
+
+    # Get the model's output shape
     with torch.no_grad():
-        tensor: torch.Tensor = model(input_tensor)
-        i = 0
-        while i < tensor.shape[1]:
-            labels_map[i] = ""
-            i += 1
+        try:
+            tensor: torch.Tensor = model(input_tensor)
+            output_classes = tensor.shape[1]
+            print(f"Detected {output_classes} output classes")
+
+            # Initialize labels map with the detected number of classes
+            update_labels_map(output_classes)
+            print("Updating label inputs:", labels_map)
+
+        except Exception as e:
+            print(f"Error testing model with input shape {input_tensor_shape}: {e}")
+            return (
+                f" - Error: Unable to process model with given input shape {input_tensor_shape}",
+                {"display": "block"},
+                {"display": "none"},
+            )
+
     return (
-        " - " + model.original_name,
+        " - " + getattr(model, "original_name", "Model"),
         {"display": "block"},
         {"display": "block"},
     )
@@ -429,14 +567,18 @@ def handleFileUpload(contents, filename):
     ],
     Input("dataset-upload", "contents"),
     State("model-upload", "contents"),
+    State("dim-batch", "value"),
+    State("dim-channels", "value"),
+    State("dim-height", "value"),
+    State("dim-width", "value"),
     prevent_initial_call=True,
 )
-def handle_csv_upload(contents, model_contents):
+def handle_csv_upload(contents, model_contents, batch, channels, height, width):
     if contents is None:
-        return "Please upload a CSV file.", ""
+        return "Please upload a CSV file.", "", {}, {}, {}, False, False, ""
 
     if model_contents is None:
-        return "Please upload a model first.", ""
+        return "Please upload a model first.", "", {}, {}, {}, False, False, ""
 
     # Decode the uploaded CSV file
     content_type, content_string = contents.split(",")
@@ -459,12 +601,23 @@ def handle_csv_upload(contents, model_contents):
         images = df.iloc[:, 1:].values  # All columns except the first (labels)
         labels = df.iloc[:, 0].values  # The first column is the label
 
+        # Update transformer based on current dimensions
+        global transformer
+        transformer = transform.Compose(
+            [
+                transform.Grayscale(channels),
+                transform.Resize((height, width)),
+                transform.ToTensor(),
+            ]
+        )
+
         # Normalize and transform images
         image_tensors.clear()
         true_labels.clear()
 
         for i in range(len(images)):
-            image = images[i].reshape(28, 28).astype(np.uint8)  # Reshape to 28x28
+            # Reshape based on the expected dimensions
+            image = images[i].reshape(height, width).astype(np.uint8)
             label = labels[i]
             image_tensors.append(
                 transformer(Image.fromarray(image))
@@ -534,8 +687,7 @@ def handle_csv_upload(contents, model_contents):
 
         # Shapey values
         try:
-
-            shapey_images = df.iloc[:, 1:].values.reshape(-1, 28, 28)
+            shapey_images = df.iloc[:, 1:].values.reshape(-1, height, width)
 
             processed_images = []
             for img in shapey_images[:100]:
@@ -554,9 +706,13 @@ def handle_csv_upload(contents, model_contents):
 
             # Compute SHAP values
             shap_values = compute_shap_values(model, sample_images, background)
+            shap_plot = plot_shap_heatmap(
+                shap_values, sample_images, shapey_labels[:5], labels_map
+            )
         except Exception as e:
             print(f"Error computing SHAP values: {e}")
-            shap_plot = html.Div("Error computing SHAP values")
+            shap_plot = html.Div(f"Error computing SHAP values: {e}")
+
         return (
             cm_display,
             report_table,
@@ -565,14 +721,21 @@ def handle_csv_upload(contents, model_contents):
             {"display": "none"},
             False,
             False,
-            plot_shap_heatmap(
-                shap_values, sample_images, shapey_labels[:5], labels_map
-            ),
+            shap_plot,
         )
 
     except Exception as e:
         print(f"Error processing CSV file: {e}")
-        return "Error processing CSV file.", "", ""
+        return (
+            html.Div(f"Error processing CSV file: {e}"),
+            "",
+            {"display": "none"},
+            {"display": "none"},
+            {"display": "none"},
+            False,
+            False,
+            html.Div(""),
+        )
 
 
 @callback(
@@ -589,12 +752,25 @@ def handle_csv_upload(contents, model_contents):
     Input("epsilon-slider", "value"),
     State("dataset-upload", "contents"),
     State("model-upload", "contents"),
+    State("dim-batch", "value"),
+    State("dim-channels", "value"),
+    State("dim-height", "value"),
+    State("dim-width", "value"),
     prevent_initial_call=True,
 )
-def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
+def handle_fgsm_attack(
+    epsilon, dataset_contents, model_contents, batch, channels, height, width
+):
     if dataset_contents is None or model_contents is None:
-        return html.Div(
-            "Please upload the dataset and model before running the attack."
+        return (
+            html.Div("Please upload the dataset and model before running the attack."),
+            "",
+            {"display": "none"},
+            {"display": "none"},
+            {"display": "none"},
+            False,
+            False,
+            html.Div(""),
         )
 
     try:
@@ -612,6 +788,16 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
         model.to(device)
         model.eval()
 
+        # Update transformer based on current dimensions
+        global transformer
+        transformer = transform.Compose(
+            [
+                transform.Grayscale(channels),
+                transform.Resize((height, width)),
+                transform.ToTensor(),
+            ]
+        )
+
         # Process CSV file
         df = pd.read_csv(dataset_decoded)
         images = df.iloc[:, 1:].values  # All columns except the first (labels)
@@ -623,7 +809,8 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
 
         # Process images
         for i in range(len(images)):
-            image = images[i].reshape(28, 28).astype(np.uint8)
+            # Reshape based on the expected dimensions
+            image = images[i].reshape(height, width).astype(np.uint8)
             image_tensors.append(transformer(Image.fromarray(image)))
             true_labels.append(labels[i])
 
@@ -708,7 +895,9 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
 
         except Exception as e:
             print(f"Error computing SHAP values for perturbed images: {e}")
-            shap_plot = html.Div("Error computing SHAP values for perturbed images")
+            shap_plot = html.Div(
+                f"Error computing SHAP values for perturbed images: {e}"
+            )
 
         return (
             cm_display,
@@ -718,9 +907,7 @@ def handle_fgsm_attack(epsilon, dataset_contents, model_contents):
             {"display": "none"},
             False,
             False,
-            plot_shap_heatmap(
-                shap_values, sample_images, shapey_labels[:5], labels_map
-            ),
+            shap_plot,
         )
 
     except Exception as e:
@@ -762,3 +949,17 @@ def onBeforeCalculation(contents, model):
 )
 def onAfterCalculation(epsilon):
     return {"display": "block"}, {"display": "block"}, {"display": "block"}, [], []
+
+
+def update_labels_map(num_classes):
+    """
+    Update the labels_map dictionary based on the number of output classes in the model
+
+    Parameters:
+    num_classes (int): Number of output classes detected in the model
+    """
+    global labels_map
+    # Create a dictionary with keys 0 to num_classes-1 and empty string values
+    labels_map = {i: f"Class {i}" for i in range(num_classes)}
+    print(f"Updated labels_map with {num_classes} classes: {labels_map}")
+    return labels_map
