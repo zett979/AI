@@ -1,5 +1,5 @@
 from dash import html
-from page.epsilon.epsilon import Layout
+from page.epsilon.Layout import Layout
 
 
 def Epsilon():

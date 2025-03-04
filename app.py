@@ -14,18 +14,25 @@ app.layout = html.Div(
         html.Div(
             [
                 Button(
-                    children="Home Page",
+                    children="Home",
                     variant="primary_ghost",
                     size="sm",
                     asLink=True,
                     href="/",
                 ),
                 Button(
-                    children="Analysis Page",
+                    children="Analysis",
                     variant="primary_ghost",
                     size="sm",
                     asLink=True,
                     href="/analysis",
+                ),
+                Button(
+                    children="Epsilon",
+                    variant="primary_ghost",
+                    size="sm",
+                    asLink=True,
+                    href="/epsilon",
                 ),
                 Button(
                     children=["Login", html.Img(src="/assets/images/icons/login.svg")],
