@@ -10,7 +10,6 @@ matplotlib.use("Agg")  # Use Agg backend (non-interactive)
 import matplotlib.pyplot as plt
 import numpy as np
 import dash
-
 from components.Button import Button
 from components.Typography import P
 from PIL import Image
@@ -39,7 +38,7 @@ image_tensors = []
 true_labels = []
 input_tensor_shape = [1, 1, 28, 28]  # Default shape for MNIST-like datasets
 
-labels_map = {}
+labels_map = {0: ""}
 
 transformer = transform.Compose(
     [transform.Grayscale(1), transform.Resize((28, 28)), transform.ToTensor()]
@@ -413,7 +412,6 @@ def handle_labels_upload(label_contents):
     # Decode the uploaded CSV file
     label_content_type, label_content_string = label_contents.split(",")
     label_decoded = io.BytesIO(base64.b64decode(label_content_string))
-
     try:
         df = pd.read_csv(label_decoded)
         print(df)
@@ -443,7 +441,6 @@ def handle_labels_upload(label_contents):
             )
             for i, label in labels_map.items()
         ]
-
         return label_inputs
 
     except Exception as e:
@@ -503,6 +500,7 @@ def close_dialog(n_clicks):
     Output("model-name", "children"),
     Output("model-name", "style"),
     Output("label-dialog", "style"),
+    Output("label-inputs", "children", allow_duplicate=True),
     Input("model-upload", "contents"),
     State("model-upload", "filename"),
     State("dim-batch", "value"),
@@ -534,9 +532,26 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
             tensor: torch.Tensor = model(input_tensor)
             output_classes = tensor.shape[1]
             print(f"Detected {output_classes} output classes")
-
+            global labels_map
             # Initialize labels map with the detected number of classes
             update_labels_map(output_classes)
+            label_inputs = [
+                html.Div(
+                    children=[
+                        html.Label(f"Label {i}"),
+                        dcc.Input(
+                            id={"type": "label-input", "index": i},
+                            type="text",
+                            value=labels_map.get(i, ""),
+                            className="input flex-1",
+                        ),
+                    ],
+                    className="flex flex-col gap-2",
+                )
+                for i in range(
+                    len(labels_map)
+                )  # Ensure we are generating inputs for all available labels
+            ]
             print("Updating label inputs:", labels_map)
 
         except Exception as e:
@@ -545,12 +560,14 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
                 f" - Error: Unable to process model with given input shape {input_tensor_shape}",
                 {"display": "block"},
                 {"display": "none"},
+                [],
             )
 
     return (
         " - " + getattr(model, "original_name", "Model"),
         {"display": "block"},
         {"display": "block"},
+        label_inputs,
     )
 
 
