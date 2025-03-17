@@ -121,14 +121,26 @@ input[type="checkbox"]:checked::after {
   max-height: 40px !important;
   position: relative !important;
 }
+#feedback .Select-control {
+  height: 64px !important;
+  font-size: 20px !important;
+}
+#feedback .Select-multi-value-wrapper {
+  height: 64px !important;
+}
 .Select-multi-value-wrapper::after {
   content: "";
   position: absolute;
   width: 24px;
   height: 24px;
   right: 4px;
-  top: 4px;
+  top: 50%;
+  transform: translateY(-48%);
   background-image: url(/assets/images/down.png);
+}
+.Select-placeholder, .Select-value {
+  display: flex;
+  align-items: center;
 }
 .Select-multi-value-wrapper,
 .Select-control {
@@ -172,4 +184,19 @@ input[type="checkbox"]:checked::after {
 }
 .input::placeholder{
     color: var(--primary-disabled)
+}
+._dash-loading{
+  display: fixed;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: #9ee0e0 !important;
+  animation: pulse 1s infinite !important;
+}
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
 }

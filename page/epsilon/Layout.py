@@ -5,6 +5,7 @@ import pandas as pd
 import torchvision.transforms as transform
 import seaborn as sns
 import matplotlib
+import time
 
 matplotlib.use("Agg")  # Use Agg backend (non-interactive)
 import matplotlib.pyplot as plt
@@ -32,6 +33,7 @@ from utils.utils import (
     compute_shap_values,
     plot_shap_heatmap,
 )
+from utils.ThreeDVisualization import plot_shap_3d_scatter
 
 # Initialize global variables
 image_tensors = []
@@ -115,6 +117,14 @@ def Layout():
                                 html.Div(
                                     id="shap-visualization-before",
                                 ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-visualization-before",
+                                ),
+                                html.Div(
+                                    id="three-visualization-before",
+                                ),
                             ],
                             className="w-full flex flex-col gap-3",
                         ),
@@ -162,6 +172,14 @@ def Layout():
                                 ),
                                 html.Div(
                                     id="shap-visualization-after",
+                                ),
+                                html.Div(
+                                    className="w-full h-72 bg-[#C4DFDF] animate-pulse",
+                                    style={"display": "none"},
+                                    id="loading-visualization-after",
+                                ),
+                                html.Div(
+                                    id="three-visualization-after",
                                 ),
                             ],
                             className="w-full flex flex-col gap-3",
@@ -427,9 +445,11 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
         Output("loading-predictions-before", "style", allow_duplicate=True),
         Output("loading-report-before", "style", allow_duplicate=True),
         Output("loading-shap-before", "style", allow_duplicate=True),
+        Output("loading-visualization-before", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
         Output("shap-visualization-before", "children"),
+        Output("three-visualization-before", "children"),
     ],
     Input("dataset-upload", "contents"),
     State("model-upload", "contents"),
@@ -575,6 +595,9 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             shap_plot = plot_shap_heatmap(
                 shap_values, sample_images, shapey_labels[:5], labels_map
             )
+            shap_3d = plot_shap_3d_scatter(
+                shap_values, sample_images, shapey_labels, labels_map
+            )
         except Exception as e:
             print(f"Error computing SHAP values: {e}")
             shap_plot = html.Div(f"Error computing SHAP values: {e}")
@@ -585,9 +608,11 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             {"display": "none"},
             {"display": "none"},
             {"display": "none"},
+            {"display": "none"},
             False,
             False,
             shap_plot,
+            shap_3d,
         )
 
     except Exception as e:
@@ -611,9 +636,11 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
         Output("loading-predictions-after", "style", allow_duplicate=True),
         Output("loading-report-after", "style", allow_duplicate=True),
         Output("loading-shap-after", "style", allow_duplicate=True),
+        Output("loading-visualization-after", "style", allow_duplicate=True),
         Output("dataset-upload-button", "disabled", allow_duplicate=True),
         Output("model-upload-button", "disabled", allow_duplicate=True),
         Output("shap-visualization-after", "children"),
+        Output("three-visualization-after", "children"),
     ],
     Input("epsilon-slider", "value"),
     State("dataset-upload", "contents"),
@@ -758,6 +785,9 @@ def handle_fgsm_attack(
             shap_plot = plot_shap_heatmap(
                 shap_values, sample_images, shapey_labels, labels_map
             )
+            shap_3d = plot_shap_3d_scatter(
+                shap_values, sample_images.detach(), shapey_labels, labels_map
+            )
 
         except Exception as e:
             print(f"Error computing SHAP values for perturbed images: {e}")
@@ -771,9 +801,11 @@ def handle_fgsm_attack(
             {"display": "none"},
             {"display": "none"},
             {"display": "none"},
+            {"display": "none"},
             False,
             False,
             shap_plot,
+            shap_3d,
         )
 
     except Exception as e:
@@ -794,6 +826,7 @@ def handle_fgsm_attack(
     Output("loading-predictions-before", "style"),
     Output("loading-report-before", "style"),
     Output("loading-shap-before", "style"),
+    Output("loading-visualization-before", "style"),
     Output("dataset-upload-button", "disabled"),
     Output("model-upload-button", "disabled"),
     Input("dataset-upload", "contents"),
@@ -801,20 +834,37 @@ def handle_fgsm_attack(
     prevent_initial_call=True,
 )
 def onBeforeCalculation(contents, model):
-    return {"display": "block"}, {"display": "block"}, {"display": "block"}, True, True
+    time.sleep(1)
+    return (
+        {"display": "block"},
+        {"display": "block"},
+        {"display": "block"},
+        {"display": "block"},
+        True,
+        True,
+    )
 
 
 @callback(
     Output("loading-predictions-after", "style"),
     Output("loading-report-after", "style"),
     Output("loading-shap-after", "style"),
+    Output("loading-visualization-after", "style"),
     Output("confusion-matrix-after", "children", allow_duplicate=True),
     Output("classification-report-after", "children", allow_duplicate=True),
     Input("epsilon-slider", "value"),
     prevent_initial_call=True,
 )
 def onAfterCalculation(epsilon):
-    return {"display": "block"}, {"display": "block"}, {"display": "block"}, [], []
+    time.sleep(1)
+    return (
+        {"display": "block"},
+        {"display": "block"},
+        {"display": "block"},
+        {"display": "block"},
+        [],
+        [],
+    )
 
 
 def update_labels_map(num_classes):
