@@ -35,7 +35,7 @@ def Layout():
                             ),
                             dcc.Dropdown(
                                 id="feedback",
-                                searchable=True,
+                                searchable=False,
                                 options=[
                                     "Data analysis",
                                     "Model Analysis",

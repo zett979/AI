@@ -60,7 +60,7 @@ app.layout = html.Div(
                                 ),
                             ],
                             id="analysis-dropdown",
-                            className=f"flex flex-col gap-2.5 absolute top-full px-2 py-3 bg-[#EEFFFF] backdrop-blur-lg right-0 w-fit shadow-md z-[10] rounded-lg duration-150 origin-top group-hover:scale-100 scale-0 after:absolute after:absolute after:top-0 after:left-0 after:w-full after:h-[200px] after:scale-200 after:bg-transparent after:pointer-none",
+                            className=f"flex flex-col gap-2.5 absolute top-full px-2 py-3 bg-[#EEFFFF] backdrop-blur-lg right-0 w-fit shadow-md z-[10] rounded-lg duration-150 origin-top group-hover:scale-100 scale-0 after:absolute after:absolute after:top-0 after:left-0 after:z-[-1] after:w-full after:h-[200px] after:scale-200 after:bg-transparent after:pointer-none",
                         ),
                     ],
                     className="relative group",
