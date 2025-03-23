@@ -6,9 +6,10 @@ import io
 import shap
 import numpy as np
 from torch import nn
+import random
 from dash import html
 
-
+CACHED = {}
 def create_classification_report_table(report_dict):
     """Convert classification report to a formatted DataFrame for Dash table"""
     # Extract metrics for each class
@@ -207,3 +208,12 @@ def compute_shap_values(model, images, background):
     except Exception as e:
         print(f"Error in SHAP computation: {e}")
         raise
+
+
+
+def generate_random(beg, end, num, name="images"):
+    if(CACHED.get(name)):
+        return CACHED[name]
+    CACHED[name] = [random.randint(beg, end) for _ in range(num)]
+    print(CACHED)
+    return CACHED[name]

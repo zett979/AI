@@ -56,7 +56,7 @@ def plot_shap_3d_scatter(
                     z=abs_img_shap[pos_mask].flatten(),
                     mode="markers",
                     marker=dict(size=8, color=color_schemes[i]["positive"], opacity=0.8),
-                    name=f"Positive SHAP (Sample {i+1})",
+                    name=f"Positive SHAP ({ labels_map[true_labels[i]] if labels_map[true_labels[i]] else "Sample Image"} {i+1})",
                 )
             )
 
@@ -68,7 +68,7 @@ def plot_shap_3d_scatter(
                     z=-abs_img_shap[neg_mask].flatten(),
                     mode="markers",
                     marker=dict(size=8, color=color_schemes[i]["negative"], opacity=0.8),
-                    name=f"Negative SHAP (Sample {i+1})",
+                    name=f"Negative SHAP ({ labels_map[true_labels[i]] if labels_map[true_labels[i]] else "Sample Image"} {i+1})",
                 )
             )
 

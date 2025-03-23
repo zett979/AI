@@ -1,16 +1,9 @@
 from components.Typography import P
 from api.ollama import getModelName, chatToModel
-from dash import (
-    html,
-    callback,
-    Input,
-    Output,
-    dcc,
-)
+from dash import html, callback, Input, Output, dcc, State
 import dash
 
 PROMPT = ""
-LOADING = False
 CLICKS = 0
 
 
@@ -18,7 +11,7 @@ def Layout():
     return html.Div(
         children=[
             dcc.Store(
-                data=([]),
+                data=({"chats": [], "isLoading": False}),
                 storage_type="session",
                 id="chats",
             ),
@@ -49,7 +42,7 @@ def Layout():
                 children=[
                     dcc.Input(
                         placeholder="Ask anything...",
-                        className="w-full bg-[#D2E9E9] p-3",
+                        className="w-full bg-[#E3F4F4] placeholder:text-[#9BADAD] border border-transparent focus:border-[#9BADAD] p-3 duration-150",
                         id="chat-input",
                         value="",
                         type="text",
@@ -69,7 +62,7 @@ def Layout():
                         id="real-chat-btn", className="hidden", n_clicks_timestamp=0
                     ),
                 ],
-                className="w-full sticky top-[67vh] rounded-lg overflow-hidden",
+                className="w-full sticky top-[67vh] rounded-lg",
             ),
         ],
         className="relative flex flex-col gap-3 px-10 my-2",
@@ -85,49 +78,72 @@ def chatInput(input):
     Output("chats", "data", allow_duplicate=True),
     Output("real-chat-btn", "n_clicks_timestamp"),
     Output("chat-input", "disabled", allow_duplicate=True),
-    Input("chats", "data"),
     Input("chat-btn", "n_clicks_timestamp"),
-    Input("chat-input", "value"),
+    State("chats", "data"),
+    State("chat-input", "value"),
     prevent_initial_call=True,
 )
-def onChatClick(chats, n_clicks, input):
-    global LOADING, CLICKS
-    if n_clicks > CLICKS and LOADING == False and input != "":
-        new_chats = chats.copy()
-        new_chats.append({"type": "User", "message": input})  # User message
-        new_chats.append({"type": "Loading", "message": ""})  # Loading placeholder
-        CLICKS = n_clicks
-        LOADING = True
-        return new_chats, n_clicks, True
-    else:
+def onChatClick(n_clicks, chat_data, input):
+    chats = chat_data["chats"]
+    LOADING = chat_data["isLoading"]
+    global CLICKS
+    if n_clicks is None or (n_clicks <= CLICKS and n_clicks != 0):
         return dash.no_update
+
+    if not LOADING and input.strip():
+        if chats is None:
+            chats = []
+
+        new_chats = chats + [
+            {"type": "User", "message": input},
+            {"type": "Loading", "message": ""},
+        ]
+
+        CLICKS = n_clicks
+        print("onChatClick - Updated chats:", new_chats)
+
+        return {"chats": new_chats, "isLoading": True}, n_clicks, True
+
+    return dash.no_update
 
 
 @callback(
     Output("chats", "data", allow_duplicate=True),
     Output("chat-input", "value", allow_duplicate=True),
     Output("chat-input", "disabled", allow_duplicate=True),
-    Input("chats", "data"),
     Input("real-chat-btn", "n_clicks_timestamp"),
-    Input("chat-input", "value"),
+    State("chats", "data"),
+    State("chat-input", "value"),
     prevent_initial_call=True,
     background=True,
 )
-def onChat(chats, n_clicks, input):
-    global LOADING
-    new_chats = chats.copy()
-    if LOADING == True:
-        response = chatToModel(input)  # Get response from Ollama
-        new_chats.pop()  # Remove the loading message
-        new_chats.append({"type": "AI", "message": response})  # Add AI response
-        LOADING = False
-        return new_chats, "", False
-    else:
+def onChat(n_clicks, chat_data, input):
+    chats = chat_data["chats"]
+    LOADING = chat_data["isLoading"]
+    if n_clicks is None:
         return dash.no_update
+
+    if LOADING:
+        if chats is None:
+            chats = []  
+
+        new_chats = chats.copy()
+
+        response = chatToModel(input)  
+
+        if new_chats and new_chats[-1]["type"] == "Loading":
+            new_chats.pop()
+
+        new_chats.append({"type": "AI", "message": response}) 
+
+        return {"chats": new_chats, "isLoading": False}, "", False
+
+    return dash.no_update
 
 
 @callback(Output("chat-output", "children"), Input("chats", "data"))
-def updateChats(chats):
+def updateChats(chat_data):
+    chats = chat_data["chats"]
     children = []
     for chat in chats:
         children.append(

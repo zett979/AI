@@ -32,6 +32,7 @@ from utils.utils import (
     fgsm_attack,
     compute_shap_values,
     plot_shap_heatmap,
+    generate_random
 )
 from utils.ThreeDVisualization import plot_shap_3d_scatter
 
@@ -39,7 +40,7 @@ from utils.ThreeDVisualization import plot_shap_3d_scatter
 image_tensors = []
 true_labels = []
 input_tensor_shape = [1, 1, 28, 28]  # Default shape for MNIST-like datasets
-
+label_count = 10
 labels_map = {0: ""}
 
 transformer = transform.Compose(
@@ -276,23 +277,19 @@ def handle_labels_upload(label_contents):
     if label_contents is None:
         return dash.no_update
 
-    # Decode the uploaded CSV file
     label_content_type, label_content_string = label_contents.split(",")
     label_decoded = io.BytesIO(base64.b64decode(label_content_string))
     try:
         df = pd.read_csv(label_decoded)
-        print(df)
         labels = df.iloc[:, 0].values
 
-        labels_list = list(labels)[:10]  # Ensure max 10 labels
-        while len(labels_list) < 10:
+        labels_list = list(labels)[:label_count]  
+        while len(labels_list) < label_count:
             labels_list.append("")  # Fill missing labels with ""
 
-        # Update the labels_map
         global labels_map
         labels_map = {i: label for i, label in enumerate(labels_list)}
 
-        # Generate the input components dynamically based on labels_map
         label_inputs = [
             html.Div(
                 children=[
@@ -320,16 +317,13 @@ def handle_labels_upload(label_contents):
     Input({"type": "label-input", "index": ALL}, "value"),
 )
 def update_labels(input_values):
-    print("Input values:", input_values)
     global labels_map
 
     # Check if any input value has changed and update the labels_map accordingly
     for i, value in enumerate(input_values):
-        if value != labels_map.get(i, ""):  # Only update if the value has changed
+        if value != labels_map.get(i, ""):  
             labels_map[i] = value
-            print(f"Updated Label {i}: {value}")
 
-    # Generate the input components dynamically based on labels_map
     label_inputs = [
         html.Div(
             children=[
@@ -381,26 +375,24 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
     decoded = io.BytesIO(base64.b64decode(content_string))
     model: torch.jit.ScriptModule = torch.jit.load(decoded)
 
-    # Check for CUDA support
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)  # Move the model to the right device
+    model.to(device)  
 
-    # Update global tensor shape based on current values in the UI
     global input_tensor_shape, labels_map
     input_tensor_shape = [batch, channels, height, width]
     print(f"Using input tensor shape: {input_tensor_shape}")
 
-    # Create a dummy input tensor with the specified dimensions
+    # a dummy input tensor with the specified dimensions
     input_tensor = torch.randn(*input_tensor_shape).to(device)
 
-    # Get the model's output shape
     with torch.no_grad():
         try:
             tensor: torch.Tensor = model(input_tensor)
             output_classes = tensor.shape[1]
             print(f"Detected {output_classes} output classes")
-            global labels_map
-            # Initialize labels map with the detected number of classes
+            global labels_map, label_count
+            label_count = output_classes
+            # update labels_map with output_classes
             update_labels_map(output_classes)
             label_inputs = [
                 html.Div(
@@ -417,9 +409,8 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
                 )
                 for i in range(
                     len(labels_map)
-                )  # Ensure we are generating inputs for all available labels
+                )
             ]
-            print("Updating label inputs:", labels_map)
 
         except Exception as e:
             print(f"Error testing model with input shape {input_tensor_shape}: {e}")
@@ -480,10 +471,8 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
     model.to(device)  # Move the model to the right device
 
     try:
-        # Process the CSV file containing images and labels
         df = pd.read_csv(decoded)
 
-        # Split the data into images and labels
         images = df.iloc[:, 1:].values  # All columns except the first (labels)
         labels = df.iloc[:, 0].values  # The first column is the label
 
@@ -512,7 +501,6 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
 
         all_images_tensor = torch.stack(image_tensors)  # Combine into a tensor
 
-        # Get predictions
         model.eval()
         all_images_tensor = all_images_tensor.to(
             device
@@ -522,11 +510,10 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             outputs = model(all_images_tensor)
             _, predictions = torch.max(outputs, 1)
 
-        # Confusion matrix
+        
         cm = confusion_matrix(true_labels, predictions.cpu().numpy())
         cm_display = plot_confusion_matrix(cm, labels_map)
 
-        # Generate classification report
         report = classification_report(
             true_labels,
             predictions.cpu().numpy(),
@@ -582,10 +569,12 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
 
             background = torch.stack(processed_images).to(device)
 
-            # Process sample images
             sample_processed = []
-            for img in shapey_images[:5]:  # Use first 5 images as samples
-                tensor = transformer(Image.fromarray(img.astype(np.uint8)))
+            sample_labels = []
+            randoms = generate_random(0, len(shapey_images) - 1, 5)
+            for idx in randoms:
+                tensor = transformer(Image.fromarray(shapey_images[idx].astype(np.uint8)))
+                sample_labels.append(shapey_labels[idx])
                 sample_processed.append(tensor)
 
             sample_images = torch.stack(sample_processed).to(device)
@@ -593,10 +582,10 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             # Compute SHAP values
             shap_values = compute_shap_values(model, sample_images, background)
             shap_plot = plot_shap_heatmap(
-                shap_values, sample_images, shapey_labels[:5], labels_map
+                shap_values, sample_images, sample_labels, labels_map
             )
             shap_3d = plot_shap_3d_scatter(
-                shap_values, sample_images, shapey_labels, labels_map
+                shap_values, sample_images, sample_labels, labels_map
             )
         except Exception as e:
             print(f"Error computing SHAP values: {e}")
@@ -775,18 +764,23 @@ def handle_fgsm_attack(
             perturbed_cpu = perturbed_images.cpu()
 
             background = perturbed_cpu[:100]
+            
+            randoms = generate_random(0, len(perturbed_cpu), 5)
 
-            sample_images = perturbed_cpu[:5]
+            sample_images = []
 
-            shapey_labels = df.iloc[:, 0].values[:5]
-
+            sample_labels = []
+            randoms = generate_random(0, len(perturbed_cpu) - 1, 5)
+            # Select random samples
+            sample_images = torch.stack([perturbed_cpu[idx] for idx in randoms])
+            sample_labels = [labels[idx] for idx in randoms] 
             shap_values = compute_shap_values(model, sample_images, background)
 
             shap_plot = plot_shap_heatmap(
-                shap_values, sample_images, shapey_labels, labels_map
+                shap_values, sample_images, sample_labels, labels_map
             )
             shap_3d = plot_shap_3d_scatter(
-                shap_values, sample_images.detach(), shapey_labels, labels_map
+                shap_values, sample_images.detach(), sample_labels, labels_map
             )
 
         except Exception as e:
