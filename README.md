@@ -15,3 +15,6 @@
 
 ## Clearing up caches
 - # find . -type d -name '__pycache__' -exec rm -r {} +
+
+## Things to note
+- when generating requirements.txt use # pip freeze | grep -v "@" > requirements.txt
