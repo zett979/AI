@@ -13,6 +13,8 @@ if "REDIS_URL" in os.environ:
 else:
     # Diskcache for non-production apps when developing locally
     import diskcache
-
-    cache = diskcache.Cache("./cache")
+    cache_dir = '/tmp'
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    cache = diskcache.Cache(cache_dir)
     background_callback_manager = DiskcacheManager(cache)

@@ -113,7 +113,6 @@ opentelemetry-exporter-otlp-proto-grpc==1.31.1
 opentelemetry-proto==1.31.1
 opentelemetry-sdk==1.31.1
 opentelemetry-semantic-conventions==0.52b1
-orjson==3.10.16
 pathspec==0.12.1
 patsy==1.0.1
 phik==0.12.4
