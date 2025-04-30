@@ -62,7 +62,14 @@ def Layout():
                         max=0.5,
                         step=0.01,
                         value=0.0,
-                        marks={i: f"{i:.2f}" for i in np.arange(0.0, 0.6, 0.1)},
+                        marks={
+                            0.0: "0.00",
+                            0.1: "0.10",
+                            0.2: "0.20",
+                            0.3: "0.30",
+                            0.4: "0.40",
+                            0.5: "0.50"
+                        },
                         tooltip={"placement": "bottom", "always_visible": True},
                     ),
                 ],

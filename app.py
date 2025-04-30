@@ -2,11 +2,11 @@ import dash
 from dash import Dash, html, Output, Input, ctx, callback
 from components.Button import Button
 from page.DataDialog import DataDialog
-from utils.CacheManager import background_callback_manager
 
 app = Dash(
-    __name__, use_pages=True, background_callback_manager=background_callback_manager
+    __name__, use_pages=True
 )
+server = app.server
 IS_OPEN = False
 app.layout = html.Div(
     [
@@ -97,4 +97,4 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run(debug=False, port=8000, host="0.0.0.0")
+    app.run(debug=False, port=8050, host="0.0.0.0")

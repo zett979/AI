@@ -1,11 +1,12 @@
-FROM python:3.12-slim
+FROM python:3.10-slim
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY requirements.txt /app/
+RUN pip install --retries 5 --no-cache-dir -r requirements.txt
 
-EXPOSE 8080
+COPY . /app/
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:server"]
+EXPOSE 8050
+
+CMD ["gunicorn", "-b", "0.0.0.0:8050", "--reload", "app:server"]
