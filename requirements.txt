@@ -15,5 +15,6 @@ shap==0.46.0
 torch==2.5.1
 torchvision==0.20.1
 dash[diskcache]
+psutil
 ollama
 gunicorn

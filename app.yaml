@@ -1,5 +1,5 @@
 runtime: python312  # You can use other versions, but 3.12 is stable.
-entrypoint: gunicorn -b 0.0.0.0:8080 app:server  # Start Dash app using Gunicorn.
+entrypoint: gunicorn -b 0.0.0.0:8050 app:server  # Start Dash app using Gunicorn.
 
 automatic_scaling:
   target_cpu_utilization: 0.9
