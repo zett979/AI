@@ -2,10 +2,7 @@ import dash
 from dash import Dash, html, Output, Input, ctx, callback
 from components.Button import Button
 from page.DataDialog import DataDialog
-
-app = Dash(
-    __name__, use_pages=True
-)
+app = Dash(__name__, use_pages=True)
 server = app.server
 IS_OPEN = False
 app.layout = html.Div(
@@ -32,7 +29,11 @@ app.layout = html.Div(
                         Button(
                             children=[
                                 "Analysis",
-                                html.Img(src="/assets/images/icons/arrow-down.svg", id="analysis-arrow", className="duration-150"),
+                                html.Img(
+                                    src="/assets/images/icons/arrow-down.svg",
+                                    id="analysis-arrow",
+                                    className="duration-150",
+                                ),
                             ],
                             variant="primary_ghost",
                             size="sm",
@@ -48,7 +49,7 @@ app.layout = html.Div(
                                     size="sm",
                                     asLink=True,
                                     href="/epsilon",
-                                    className="w-[150px]"
+                                    className="w-[150px]",
                                 ),
                                 Button(
                                     children="Dataset Analysis",
@@ -56,7 +57,7 @@ app.layout = html.Div(
                                     size="sm",
                                     asLink=True,
                                     href="/analysis",
-                                    className="w-[150px]"
+                                    className="w-[150px]",
                                 ),
                             ],
                             id="analysis-dropdown",
@@ -97,4 +98,4 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run(debug=False, port=8050, host="0.0.0.0")
+    app.run(debug=True, port=8050, host="0.0.0.0")

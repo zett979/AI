@@ -6,7 +6,6 @@ import base64
 import io
 import pandas as pd
 
-
 def Layout():
     return html.Div(
         children=[

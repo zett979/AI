@@ -32,7 +32,7 @@ from utils.utils import (
     fgsm_attack,
     compute_shap_values,
     plot_shap_heatmap,
-    generate_random
+    generate_random,
 )
 from utils.ThreeDVisualization import plot_shap_3d_scatter
 
@@ -68,7 +68,7 @@ def Layout():
                             0.2: "0.20",
                             0.3: "0.30",
                             0.4: "0.40",
-                            0.5: "0.50"
+                            0.5: "0.50",
                         },
                         tooltip={"placement": "bottom", "always_visible": True},
                     ),
@@ -290,7 +290,7 @@ def handle_labels_upload(label_contents):
         df = pd.read_csv(label_decoded)
         labels = df.iloc[:, 0].values
 
-        labels_list = list(labels)[:label_count]  
+        labels_list = list(labels)[:label_count]
         while len(labels_list) < label_count:
             labels_list.append("")  # Fill missing labels with ""
 
@@ -328,7 +328,7 @@ def update_labels(input_values):
 
     # Check if any input value has changed and update the labels_map accordingly
     for i, value in enumerate(input_values):
-        if value != labels_map.get(i, ""):  
+        if value != labels_map.get(i, ""):
             labels_map[i] = value
 
     label_inputs = [
@@ -378,29 +378,83 @@ def close_dialog(n_clicks):
     prevent_initial_call=True,
 )
 def handleFileUpload(contents, filename, batch, channels, height, width):
+    if contents is None:
+        return "", {"display": "none"}, {"display": "none"}, []
+
     content_type, content_string = contents.split(",")
     decoded = io.BytesIO(base64.b64decode(content_string))
-    model: torch.jit.ScriptModule = torch.jit.load(decoded)
+
+    # Check file extension to determine loading method
+    file_ext = filename.lower().split(".")[-1]
+
+    try:
+        # PyTorch JIT serialized models
+        if file_ext in ["pt", "pth"]:
+            model = torch.jit.load(decoded)
+            model_name = getattr(model, "original_name", "Model")
+        # Pickle serialized models
+        elif file_ext in ["pkl", "pk"]:
+            import pickle
+
+            model = pickle.load(decoded)
+            model_name = getattr(model, "__name__", "Model")
+        else:
+            return (
+                f" - Error: Unsupported file format '{file_ext}'. Please upload .pt, .pth, .pkl, or .pk files only.",
+                {"display": "block"},
+                {"display": "none"},
+                [],
+            )
+    except Exception as e:
+        return (
+            f" - Error: Failed to load model: {str(e)}",
+            {"display": "block"},
+            {"display": "none"},
+            [],
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)  
+    try:
+        model.to(device)
+    except AttributeError:
+        print("Model doesn't support .to() method, continuing without device transfer")
+    except Exception as e:
+        print(f"Warning: Could not move model to device: {e}")
 
     global input_tensor_shape, labels_map
     input_tensor_shape = [batch, channels, height, width]
     print(f"Using input tensor shape: {input_tensor_shape}")
 
-    # a dummy input tensor with the specified dimensions
+    # Create a dummy input tensor with the specified dimensions
     input_tensor = torch.randn(*input_tensor_shape).to(device)
 
     with torch.no_grad():
         try:
-            tensor: torch.Tensor = model(input_tensor)
+            # Handle different model types
+            if hasattr(model, "forward"):
+                tensor = model(input_tensor)
+            elif callable(model):
+                tensor = model(input_tensor)
+            else:
+                return (
+                    f" - Error: Model doesn't have a forward method or is not callable",
+                    {"display": "block"},
+                    {"display": "none"},
+                    [],
+                )
+
+            # Handle different output types
+            if isinstance(tensor, tuple):
+                tensor = tensor[0]  # Take first output if model returns multiple
+
             output_classes = tensor.shape[1]
             print(f"Detected {output_classes} output classes")
-            global labels_map, label_count
+
+            global label_count
             label_count = output_classes
             # update labels_map with output_classes
             update_labels_map(output_classes)
+
             label_inputs = [
                 html.Div(
                     children=[
@@ -414,22 +468,19 @@ def handleFileUpload(contents, filename, batch, channels, height, width):
                     ],
                     className="flex flex-col gap-2",
                 )
-                for i in range(
-                    len(labels_map)
-                )
+                for i in range(len(labels_map))
             ]
-
         except Exception as e:
             print(f"Error testing model with input shape {input_tensor_shape}: {e}")
             return (
-                f" - Error: Unable to process model with given input shape {input_tensor_shape}",
+                f" - Error: Unable to process model with given input shape {input_tensor_shape}. Error: {str(e)}",
                 {"display": "block"},
                 {"display": "none"},
                 [],
             )
 
     return (
-        " - " + getattr(model, "original_name", "Model"),
+        f" - {model_name}",
         {"display": "block"},
         {"display": "block"},
         label_inputs,
@@ -517,7 +568,6 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             outputs = model(all_images_tensor)
             _, predictions = torch.max(outputs, 1)
 
-        
         cm = confusion_matrix(true_labels, predictions.cpu().numpy())
         cm_display = plot_confusion_matrix(cm, labels_map)
 
@@ -580,7 +630,9 @@ def handle_csv_upload(contents, model_contents, batch, channels, height, width):
             sample_labels = []
             randoms = generate_random(0, len(shapey_images) - 1, 5)
             for idx in randoms:
-                tensor = transformer(Image.fromarray(shapey_images[idx].astype(np.uint8)))
+                tensor = transformer(
+                    Image.fromarray(shapey_images[idx].astype(np.uint8))
+                )
                 sample_labels.append(shapey_labels[idx])
                 sample_processed.append(tensor)
 
@@ -771,7 +823,7 @@ def handle_fgsm_attack(
             perturbed_cpu = perturbed_images.cpu()
 
             background = perturbed_cpu[:100]
-            
+
             randoms = generate_random(0, len(perturbed_cpu), 5)
 
             sample_images = []
@@ -780,7 +832,7 @@ def handle_fgsm_attack(
             randoms = generate_random(0, len(perturbed_cpu) - 1, 5)
             # Select random samples
             sample_images = torch.stack([perturbed_cpu[idx] for idx in randoms])
-            sample_labels = [labels[idx] for idx in randoms] 
+            sample_labels = [labels[idx] for idx in randoms]
             shap_values = compute_shap_values(model, sample_images, background)
 
             shap_plot = plot_shap_heatmap(
